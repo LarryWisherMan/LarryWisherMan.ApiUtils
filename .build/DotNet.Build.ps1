@@ -155,11 +155,12 @@ task Locate_Build_Artifacts Build_DotNet_Project, {
             Write-Build DarkGray "Checking path: $path"
             $tempPSD1 = Get-ChildItem $path -Filter "*.psd1" -Recurse -ErrorAction SilentlyContinue
             $tempDLL = Get-ChildItem $path -Filter "$ProjectName.dll" -Recurse -ErrorAction SilentlyContinue
+            $OtherDll = Get-ChildItem $path -Filter "Newtonsoft.Json.dll" -Recurse -ErrorAction SilentlyContinue
 
             if ($tempPSD1 -and $tempDLL) {
                 $BinPath = $path
                 $SourcePSD1 = $tempPSD1
-                $dllItem = $tempDLL
+                $dllItem = @($tempDLL, $OtherDll)
                 break
             }
         }
@@ -189,6 +190,7 @@ task Locate_Build_Artifacts Build_DotNet_Project, {
 
 # Task: Build final module
 task Build_Final_Module Locate_Build_Artifacts, Get_Version_Information, {
+
     Build-Module -SourcePath $BuildInfo.SourcePSD1 -OutputDirectory $BuildModuleOutput -VersionedOutputDirectory -SemVer $BuildInfo.DotVersion.InformationalVersion -CopyPaths $BuildInfo.DllItem
 
     Write-Build Green "Module built successfully"

@@ -5,6 +5,11 @@
     <PropertyGroup>
         <TargetFramework>netstandard2.0</TargetFramework>
         <AssemblyName>LarryWisherMan.ApiUtils</AssemblyName>
+        <LangVersion>9.0</LangVersion>
+
+        <!-- Force copying of dependencies -->
+        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+
 
         <!-- GitVersion will override these at build time -->
         <Version>0.1.0</Version>
@@ -16,6 +21,11 @@
     <ItemGroup>
         <PackageReference Include="PowerShellStandard.Library" Version="5.1.1">
             <PrivateAssets>All</PrivateAssets>
+        </PackageReference>
+
+        <!-- Newtonsoft.Json for JSON serialization - better .NET Framework compatibility -->
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.3">
+            <PrivateAssets>None</PrivateAssets>
         </PackageReference>
 
         <!-- GitVersion MSBuild integration -->
