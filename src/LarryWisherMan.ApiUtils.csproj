@@ -5,12 +5,60 @@
     <PropertyGroup>
         <TargetFramework>netstandard2.0</TargetFramework>
         <AssemblyName>LarryWisherMan.ApiUtils</AssemblyName>
+
+        <!-- GitVersion will override these at build time -->
+        <Version>0.1.0</Version>
+        <AssemblyVersion>0.1.0.0</AssemblyVersion>
+        <FileVersion>0.1.0.0</FileVersion>
+        <InformationalVersion>0.1.0</InformationalVersion>
     </PropertyGroup>
 
     <ItemGroup>
         <PackageReference Include="PowerShellStandard.Library" Version="5.1.1">
             <PrivateAssets>All</PrivateAssets>
         </PackageReference>
+
+        <!-- GitVersion MSBuild integration -->
+        <PackageReference Include="GitVersion.MsBuild" Version="5.12.0">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+        </PackageReference>
+    </ItemGroup>
+
+    <!-- Optional: Generate version info file for PowerShell access -->
+    <Target Name="GenerateVersionInfo" AfterTargets="Build">
+        <PropertyGroup>
+            <VersionInfoContent>
+                {
+                "Version": "$(GitVersion_SemVer)",
+                "InformationalVersion": "$(GitVersion_InformationalVersion)",
+                "AssemblyVersion": "$(GitVersion_AssemblySemVer)",
+                "FileVersion": "$(GitVersion_AssemblySemFileVer)",
+                "BuildDate": "$([System.DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"))",
+                "GitCommit": "$(GitVersion_Sha)",
+                "BranchName": "$(GitVersion_BranchName)"
+                }
+            </VersionInfoContent>
+        </PropertyGroup>
+
+        <WriteLinesToFile File="$(OutputPath)version.json"
+            Lines="$(VersionInfoContent)"
+            Overwrite="true" />
+
+        <Message Text="GitVersion: $(GitVersion_SemVer)" Importance="high" />
+    </Target>
+
+    <ItemGroup>
+        <!-- Module Manifest - copy to output -->
+        <None Include="LarryWisherMan.ApiUtils.psd1">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </None>
+
+
+        <!-- Module Manifest - copy to output -->
+        <None Include="LarryWisherMan.ApiUtils.psm1">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </None>
     </ItemGroup>
 
 </Project>
