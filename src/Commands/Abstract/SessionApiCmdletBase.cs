@@ -16,6 +16,7 @@ namespace LarryWisherMan.ApiUtils.Commands.Abstract
         protected IApiSessionService SessionService { get; private set; }
         protected ISessionHttpService HttpService { get; private set; }
         protected CompositeSessionRepository CompositeRepository { get; private set; }
+        protected ILogger Logger { get; private set; }
 
         /// <summary>
         /// Global preference for saving to file by default

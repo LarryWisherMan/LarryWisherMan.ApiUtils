@@ -23,9 +23,11 @@ DotNetConfig:
 ####################################################
 # Defining 'Workflows' (suite of InvokeBuild tasks) to be run using their alias
 BuildWorkflow:
-  '.'
+  '.':
+    - build
 
-
+  build:
+    - Build_DotNet_Assembly
 
 # Import ModuleBuilder tasks from a specific PowerShell module using the build
 # task's alias. Wildcard * can be used to specify all tasks that has a similar
