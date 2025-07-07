@@ -10,168 +10,9 @@ using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 
-namespace LarryWisherMan.ApiUtils.Domain.Models
-{
-    /// <summary>
-    /// Represents a persistent API session with authentication and configuration
-    /// </summary>
-    public class ApiSession
-    {
-        public string Name { get; set; }
-        public Uri BaseUri { get; set; }
-        public IDictionary<string, string> DefaultHeaders { get; set; } = new Dictionary<string, string>();
-        public string UserAgent { get; set; } = "PowerShell/ApiUtils";
-        public NetworkCredential Credentials { get; set; }
-        public string AuthenticationToken { get; set; }
-        public string AuthenticationScheme { get; set; } = "Bearer"; // Bearer, Basic, ApiKey, etc.
-        public string ApiKeyHeaderName { get; set; } = "X-API-Key";
-        public TimeSpan DefaultTimeout { get; set; } = TimeSpan.FromSeconds(30);
-        public int MaxRedirections { get; set; } = 5;
-        public bool SkipCertificateValidation { get; set; }
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-        public DateTime LastUsed { get; set; } = DateTime.UtcNow;
-        public IDictionary<string, object> CustomProperties { get; set; } = new Dictionary<string, object>();
-    }
 
-    /// <summary>
-    /// Represents an API request that can use a session or standalone configuration
-    /// </summary>
-    public class ApiRequest
-    {
-        public string SessionName { get; set; }
-        public Uri Uri { get; set; }
-        public string Method { get; set; } = "GET";
-        public IDictionary<string, string> Headers { get; set; } = new Dictionary<string, string>();
-        public string UserAgent { get; set; }
-        public string ContentType { get; set; }
-        public object Body { get; set; }
-        public NetworkCredential Credentials { get; set; }
-        public string AuthenticationToken { get; set; }
-        public string AuthenticationScheme { get; set; }
-        public bool UseDefaultCredentials { get; set; }
-        public TimeSpan? Timeout { get; set; }
-        public int? MaxRedirections { get; set; }
-        public bool? SkipCertificateValidation { get; set; }
-        public string OutputFilePath { get; set; }
-    }
 
-    /// <summary>
-    /// Represents an HTTP response with parsed content
-    /// </summary>
-    public class ApiResponse
-    {
-        public int StatusCode { get; set; }
-        public string StatusDescription { get; set; }
-        public string RawContent { get; set; }
-        public object ParsedContent { get; set; }
-        public IDictionary<string, string> Headers { get; set; }
-        public bool IsSuccessStatusCode { get; set; }
-        public string ContentType { get; set; }
-        public string SessionName { get; set; }
-        public DateTime ResponseTime { get; set; } = DateTime.UtcNow;
-    }
 
-    /// <summary>
-    /// Configuration for API request processing
-    /// </summary>
-    public class ApiRequestOptions
-    {
-        public bool PassThrough { get; set; }
-        public bool ThrowOnError { get; set; } = false;
-        public bool ParseContent { get; set; } = true;
-        public bool UpdateSessionLastUsed { get; set; } = true;
-    }
-
-    /// <summary>
-    /// Merged configuration from session and request overrides
-    /// </summary>
-    public class ResolvedApiRequest
-    {
-        public Uri Uri { get; set; }
-        public string Method { get; set; }
-        public IDictionary<string, string> Headers { get; set; }
-        public string UserAgent { get; set; }
-        public string ContentType { get; set; }
-        public object Body { get; set; }
-        public NetworkCredential Credentials { get; set; }
-        public string AuthenticationToken { get; set; }
-        public string AuthenticationScheme { get; set; }
-        public string ApiKeyHeaderName { get; set; }
-        public bool UseDefaultCredentials { get; set; }
-        public TimeSpan Timeout { get; set; }
-        public int MaxRedirections { get; set; }
-        public bool SkipCertificateValidation { get; set; }
-        public string OutputFilePath { get; set; }
-        public string SessionName { get; set; }
-    }
-}
-
-namespace LarryWisherMan.ApiUtils.Domain.Interfaces
-{
-    using LarryWisherMan.ApiUtils.Domain.Models;
-
-    /// <summary>
-    /// Interface for session persistence and management
-    /// </summary>
-    public interface ISessionRepository
-    {
-        Task<ApiSession> GetSessionAsync(string name);
-        Task<IEnumerable<ApiSession>> GetAllSessionsAsync();
-        Task SaveSessionAsync(ApiSession session);
-        Task DeleteSessionAsync(string name);
-        Task<bool> SessionExistsAsync(string name);
-        Task UpdateLastUsedAsync(string name);
-    }
-
-    /// <summary>
-    /// Interface for session-aware HTTP operations
-    /// </summary>
-    public interface ISessionHttpService
-    {
-        Task<HttpResponseMessage> SendAsync(ResolvedApiRequest request);
-        void Dispose();
-    }
-
-    /// <summary>
-    /// Interface for resolving requests with session data
-    /// </summary>
-    public interface IRequestResolver
-    {
-        Task<ResolvedApiRequest> ResolveRequestAsync(ApiRequest request);
-    }
-
-    /// <summary>
-    /// Interface for content parsing services
-    /// </summary>
-    public interface IContentParser
-    {
-        bool CanParse(string contentType);
-        object Parse(string content, string contentType);
-    }
-
-    /// <summary>
-    /// Interface for file operations
-    /// </summary>
-    public interface IFileService
-    {
-        Task SaveStreamToFileAsync(Stream stream, string filePath);
-        bool DirectoryExists(string path);
-        string GetDirectoryName(string filePath);
-    }
-
-    /// <summary>
-    /// Interface for session-aware API request processing
-    /// </summary>
-    public interface IApiSessionService
-    {
-        Task<ApiResponse> InvokeAsync(ApiRequest request, ApiRequestOptions options = null);
-        Task<ApiSession> CreateSessionAsync(string name, Uri baseUri, string authToken = null, string scheme = "Bearer");
-        Task<ApiSession> GetSessionAsync(string name);
-        Task<IEnumerable<ApiSession>> GetAllSessionsAsync();
-        Task DeleteSessionAsync(string name);
-        Task UpdateSessionAsync(ApiSession session);
-    }
-}
 
 // ============================================================================
 // INFRASTRUCTURE LAYER - Session Persistence and HTTP Services
@@ -199,10 +40,10 @@ namespace LarryWisherMan.ApiUtils.Infrastructure.Repositories
 
         public FileSessionRepository(string sessionDirectory = null)
         {
-            _sessionDirectory = sessionDirectory ?? 
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), 
+            _sessionDirectory = sessionDirectory ??
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
                             ".apiutils", "sessions");
-            
+
             Directory.CreateDirectory(_sessionDirectory);
         }
 
@@ -220,7 +61,7 @@ namespace LarryWisherMan.ApiUtils.Infrastructure.Repositories
         {
             var sessions = new List<ApiSession>();
             var files = Directory.GetFiles(_sessionDirectory, "*.json");
-            
+
             foreach (var file in files)
             {
                 try
@@ -358,7 +199,7 @@ namespace LarryWisherMan.ApiUtils.Infrastructure.Services
         private void ConfigureHandler(ResolvedApiRequest request)
         {
             _handler.MaxAutomaticRedirections = request.MaxRedirections;
-            
+
             if (request.SkipCertificateValidation)
             {
                 _handler.ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => true;
@@ -377,7 +218,7 @@ namespace LarryWisherMan.ApiUtils.Infrastructure.Services
         private void ConfigureClient(ResolvedApiRequest request)
         {
             _httpClient.Timeout = request.Timeout;
-            
+
             // Clear and set user agent
             _httpClient.DefaultRequestHeaders.Clear();
             _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd(request.UserAgent);
@@ -423,11 +264,11 @@ namespace LarryWisherMan.ApiUtils.Infrastructure.Services
                 switch (request.AuthenticationScheme?.ToLowerInvariant())
                 {
                     case "bearer":
-                        httpRequest.Headers.Authorization = 
+                        httpRequest.Headers.Authorization =
                             new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", request.AuthenticationToken);
                         break;
                     case "basic":
-                        httpRequest.Headers.Authorization = 
+                        httpRequest.Headers.Authorization =
                             new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", request.AuthenticationToken);
                         break;
                     case "apikey":
@@ -535,7 +376,7 @@ namespace LarryWisherMan.ApiUtils.Application.Services
         public async Task<ResolvedApiRequest> ResolveRequestAsync(ApiRequest request)
         {
             ApiSession session = null;
-            
+
             if (!string.IsNullOrEmpty(request.SessionName))
             {
                 session = await _sessionRepository.GetSessionAsync(request.SessionName);
@@ -804,7 +645,7 @@ namespace LarryWisherMan.ApiUtils.Commands
             var requestResolver = new RequestResolver(sessionRepository);
             var contentParser = new CompositeContentParser();
             var fileService = new FileService();
-            
+
             SessionService = new ApiSessionService(sessionRepository, HttpService, requestResolver, contentParser, fileService);
         }
 
@@ -874,7 +715,7 @@ namespace LarryWisherMan.ApiUtils.Commands
                 }
 
                 WriteVerbose($"Created API session: {Name}");
-                
+
                 if (PassThru)
                 {
                     WriteObject(session);
