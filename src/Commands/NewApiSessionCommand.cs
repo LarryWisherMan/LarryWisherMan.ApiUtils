@@ -1,8 +1,7 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Management.Automation;
-
-
 
 namespace LarryWisherMan.ApiUtils.Commands
 {
@@ -42,10 +41,23 @@ namespace LarryWisherMan.ApiUtils.Commands
 
                 if (Headers != null)
                 {
+                    // Initialize DefaultHeaders if it's null
+                    if (session.DefaultHeaders == null)
+                    {
+                        session.DefaultHeaders = new Dictionary<string, string>();
+                    }
+
                     foreach (DictionaryEntry header in Headers)
                     {
-                        session.DefaultHeaders[header.Key.ToString()] = header.Value?.ToString();
+                        var key = header.Key?.ToString();
+                        var value = header.Value?.ToString();
+
+                        if (!string.IsNullOrEmpty(key))
+                        {
+                            session.DefaultHeaders[key] = value ?? string.Empty;
+                        }
                     }
+
                     SessionService.UpdateSessionAsync(session).GetAwaiter().GetResult();
                 }
 

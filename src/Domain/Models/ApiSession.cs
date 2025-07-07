@@ -12,7 +12,7 @@ namespace LarryWisherMan.ApiUtils.Domain.Models
     {
         public string Name { get; set; }
         public Uri BaseUri { get; set; }
-        public IDictionary<string, string> DefaultHeaders { get; set; }
+        public Dictionary<string, string> DefaultHeaders { get; set; } = new Dictionary<string, string>();
         public string UserAgent { get; set; } = "Powershell/ApiUtils";
         public NetworkCredential Credentials { get; set; }
         public string AuthenticationToken { get; set; }
