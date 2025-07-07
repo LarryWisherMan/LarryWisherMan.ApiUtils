@@ -1,0 +1,25 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Net;
+
+namespace LarryWisherMan.ApiUtils.Domain.Models
+{
+    public class ApiSession
+    {
+        public string Name { get; set; }
+        public Uri BaseUri { get; set; }
+        public IDictionary<string, string> DefaultHeaders { get; set; }
+        public string UserAgent { get; set; } = "Powershell/ApiUtils";
+        public NetworkCredential Credentials { get; set; }
+        public string AuthenticationToken { get; set; }
+        public string AuthenticationScheme { get; set; } = "Bearer";
+        public string ApiKeyHeaderName { get; set; } = "X-Api-Key";
+        public TimeSpan DefaultTimeout { get; set; } = TimeSpan.FromSeconds(30);
+        public int MaxRedirections { get; set; } = 5;
+        public bool SkipCertificateCheck { get; set; } = false;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime LastUsed { get; set; } = DateTime.UtcNow;
+        public IDictionary<string, object> CustomProperties { get; set;}= new Dictionary<string, object>();
+    }
+}
