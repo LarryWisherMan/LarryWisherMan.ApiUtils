@@ -1,14 +1,15 @@
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Management.Automation;
-using System.Net.Http;
-using LarryWisherMan.ApiUtils.Domain.Models;
-
 namespace LarryWisherMan.ApiUtils.Commands.Abstract
 {
+    using System;
+    using System.Collections;
+    using System.Collections.Generic;
+    using System.Management.Automation;
+    using System.Net.Http;
+    using LarryWisherMan.ApiUtils.Domain.Models;
+    using LarryWisherMan.ApiUtils.Infrastructure.Logging;
+
     /// <summary>
-    /// Base class for HTTP API cmdlets with common parameters
+    /// Base class for HTTP API cmdlets with lightweight logging
     /// </summary>
     public abstract class HttpApiCmdletBase : SessionInputCmdletBase
     {
@@ -66,18 +67,108 @@ namespace LarryWisherMan.ApiUtils.Commands.Abstract
         {
             try
             {
+                Logger.LogInformation("Processing HTTP request...");
+
                 var request = CreateApiRequest();
+                LogRequestDetails(request);
+
                 var options = CreateRequestOptions();
+                Logger.LogDebug("Request options: ParseContent={0}, ThrowOnError={1}",
+                    options.ParseContent, options.ThrowOnError);
 
                 var response = SessionService.InvokeAsync(request, options)
                     .GetAwaiter()
                     .GetResult();
 
+                LogResponseDetails(response);
                 ProcessApiResponse(response, options);
             }
             catch (Exception ex)
             {
+                Logger.LogError(ex, "HTTP request failed: {0}", ex.Message);
                 WriteError(new ErrorRecord(ex, GetErrorId(), ErrorCategory.NotSpecified, this));
+            }
+        }
+
+        private void LogRequestDetails(ApiRequest request)
+        {
+            // Build full URL for logging
+            var session = ResolveSession();
+            var baseUri = session?.BaseUri?.ToString() ?? "NO-SESSION";
+            var fullUrl = request.Uri != null ?
+                new Uri(new Uri(baseUri), request.Uri).ToString() :
+                $"{baseUri}/NO-URI";
+
+            Logger.LogHttpRequest(request.Method, fullUrl);
+
+            // Log authentication info (without exposing tokens)
+            if (!string.IsNullOrEmpty(request.AuthenticationToken))
+            {
+                var tokenPreview = request.AuthenticationToken.Length > 10 ?
+                    request.AuthenticationToken.Substring(0, 10) + "..." :
+                    "[SHORT-TOKEN]";
+                Logger.LogDebug("Auth: {0} {1}", request.AuthenticationScheme, tokenPreview);
+            }
+            else if (session?.AuthenticationToken != null)
+            {
+                var sessionTokenPreview = session.AuthenticationToken.Length > 10 ?
+                    session.AuthenticationToken.Substring(0, 10) + "..." :
+                    "[SHORT-TOKEN]";
+                Logger.LogDebug("Session Auth: {0} {1}", session.AuthenticationScheme, sessionTokenPreview);
+            }
+            else
+            {
+                Logger.LogDebug("No authentication configured");
+            }
+
+            // Log headers (be careful with sensitive data)
+            if (request.Headers?.Count > 0)
+            {
+                Logger.LogDebug("Request Headers:");
+                foreach (var header in request.Headers)
+                {
+                    var value = header.Key.ToLowerInvariant().Contains("auth") ||
+                               header.Key.ToLowerInvariant().Contains("token") ?
+                               "[REDACTED]" : header.Value;
+                    Logger.LogDebug("  {0}: {1}", header.Key, value);
+                }
+            }
+
+            // Log body (truncated for safety)
+            if (request.Body != null)
+            {
+                var bodyStr = request.Body.ToString();
+                if (bodyStr.Length > 500)
+                {
+                    bodyStr = bodyStr.Substring(0, 500) + "... (truncated)";
+                }
+                Logger.LogDebug("Request Body: {0}", bodyStr);
+            }
+
+            // Log other settings
+            if (request.Timeout.HasValue)
+            {
+                Logger.LogDebug("Timeout: {0}s", request.Timeout.Value.TotalSeconds);
+            }
+
+            if (!string.IsNullOrEmpty(request.ContentType))
+            {
+                Logger.LogDebug("Content-Type: {0}", request.ContentType);
+            }
+        }
+
+        private void LogResponseDetails(ApiResponse response)
+        {
+            Logger.LogHttpResponse(response.StatusCode, response.StatusDescription, response.RawContent, response.Headers);
+
+            if (!string.IsNullOrEmpty(response.ContentType))
+            {
+                Logger.LogDebug("Response Content-Type: {0}", response.ContentType);
+            }
+
+            if (response.RawContent != null)
+            {
+                Logger.LogDebug("Response Size: {0} characters", response.RawContent.Length);
             }
         }
 
@@ -92,7 +183,7 @@ namespace LarryWisherMan.ApiUtils.Commands.Abstract
                 }
             }
 
-            return new ApiRequest
+            var request = new ApiRequest
             {
                 SessionName = ResolveSessionName(),
                 Uri = Uri,
@@ -110,6 +201,9 @@ namespace LarryWisherMan.ApiUtils.Commands.Abstract
                 SkipCertificateValidation = SkipCertificateCheck.IsPresent ? (bool?)true : null,
                 OutputFilePath = OutFile
             };
+
+            Logger.LogDebug("Created API request for session: {0}", request.SessionName ?? "NONE");
+            return request;
         }
 
         protected virtual ApiRequestOptions CreateRequestOptions()
@@ -127,6 +221,14 @@ namespace LarryWisherMan.ApiUtils.Commands.Abstract
             if (!response.IsSuccessStatusCode)
             {
                 var errorMsg = $"HTTP Error {response.StatusCode}: {response.StatusDescription}";
+
+                // Include response content in error for debugging
+                if (!string.IsNullOrEmpty(response.RawContent) && response.RawContent.Length < 1000)
+                {
+                    errorMsg += $"\nResponse: {response.RawContent}";
+                    Logger.LogWarning("Error response content: {0}", response.RawContent);
+                }
+
                 var errorRecord = new ErrorRecord(
                     new HttpRequestException(errorMsg),
                     "HttpError",
@@ -139,7 +241,13 @@ namespace LarryWisherMan.ApiUtils.Commands.Abstract
 
             if (string.IsNullOrEmpty(OutFile) || PassThru)
             {
-                WriteObject(GetResponseOutput(response));
+                var output = GetResponseOutput(response);
+                Logger.LogDebug("Returning response output (Type: {0})", output?.GetType().Name ?? "null");
+                WriteObject(output);
+            }
+            else
+            {
+                Logger.LogInformation("Response saved to file: {0}", OutFile);
             }
         }
 

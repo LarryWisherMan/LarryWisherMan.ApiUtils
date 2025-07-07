@@ -1,174 +1,171 @@
-using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Management.Automation;
-
 namespace LarryWisherMan.ApiUtils.Infrastructure.Logging
 {
+    using System;
+    using System.IO;
+    using System.Management.Automation;
+
     /// <summary>
-    /// PowerShell-aware logger that writes to both ILogger and PowerShell streams
+    /// Log levels for the lightweight logger
     /// </summary>
-    public class PowerShellLogger : ILogger
+    public enum LogLevel
+    {
+        Trace = 0,
+        Debug = 1,
+        Information = 2,
+        Warning = 3,
+        Error = 4,
+        Critical = 5,
+        None = 6
+    }
+
+    /// <summary>
+    /// Lightweight logger interface
+    /// </summary>
+    public interface IApiLogger
+    {
+        void LogTrace(string message, params object[] args);
+        void LogDebug(string message, params object[] args);
+        void LogInformation(string message, params object[] args);
+        void LogWarning(string message, params object[] args);
+        void LogError(string message, params object[] args);
+        void LogError(Exception exception, string message, params object[] args);
+        void LogCritical(string message, params object[] args);
+        bool IsEnabled(LogLevel logLevel);
+    }
+
+    /// <summary>
+    /// PowerShell-aware lightweight logger
+    /// </summary>
+    public class PowerShellLogger : IApiLogger
     {
         private readonly string _categoryName;
         private readonly PSCmdlet _cmdlet;
-        private readonly ILogger _innerLogger;
+        private static LogLevel _minLogLevel = LogLevel.Information;
 
-        public PowerShellLogger(string categoryName, PSCmdlet cmdlet, ILogger innerLogger = null)
+        public PowerShellLogger(string categoryName, PSCmdlet cmdlet = null)
         {
             _categoryName = categoryName ?? throw new ArgumentNullException(nameof(categoryName));
             _cmdlet = cmdlet;
-            _innerLogger = innerLogger;
         }
 
-        public IDisposable BeginScope<TState>(TState state) => _innerLogger?.BeginScope(state) ?? NullScope.Instance;
+        public static void SetMinimumLogLevel(LogLevel logLevel)
+        {
+            _minLogLevel = logLevel;
+        }
 
-        public bool IsEnabled(LogLevel logLevel) => true;
+        public bool IsEnabled(LogLevel logLevel)
+        {
+            return logLevel >= _minLogLevel;
+        }
 
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
+        public void LogTrace(string message, params object[] args)
+        {
+            Log(LogLevel.Trace, message, null, args);
+        }
+
+        public void LogDebug(string message, params object[] args)
+        {
+            Log(LogLevel.Debug, message, null, args);
+        }
+
+        public void LogInformation(string message, params object[] args)
+        {
+            Log(LogLevel.Information, message, null, args);
+        }
+
+        public void LogWarning(string message, params object[] args)
+        {
+            Log(LogLevel.Warning, message, null, args);
+        }
+
+        public void LogError(string message, params object[] args)
+        {
+            Log(LogLevel.Error, message, null, args);
+        }
+
+        public void LogError(Exception exception, string message, params object[] args)
+        {
+            Log(LogLevel.Error, message, exception, args);
+        }
+
+        public void LogCritical(string message, params object[] args)
+        {
+            Log(LogLevel.Critical, message, null, args);
+        }
+
+        private void Log(LogLevel logLevel, string message, Exception exception = null, params object[] args)
         {
             if (!IsEnabled(logLevel))
                 return;
 
-            var message = formatter(state, exception);
-            var fullMessage = $"[{_categoryName}] {message}";
-
-            // Log to inner logger if available
-            _innerLogger?.Log(logLevel, eventId, state, exception, formatter);
-
-            // Log to PowerShell streams based on log level
-            if (_cmdlet != null)
+            try
             {
-                switch (logLevel)
+                var formattedMessage = args?.Length > 0 ? string.Format(message, args) : message;
+                var fullMessage = $"[{_categoryName}] {formattedMessage}";
+
+                // Log to PowerShell streams based on log level
+                if (_cmdlet != null)
                 {
-                    case LogLevel.Trace:
-                    case LogLevel.Debug:
-                        _cmdlet.WriteDebug(fullMessage);
-                        break;
-                    case LogLevel.Information:
-                        _cmdlet.WriteVerbose(fullMessage);
-                        break;
-                    case LogLevel.Warning:
-                        _cmdlet.WriteWarning(fullMessage);
-                        break;
-                    case LogLevel.Error:
-                    case LogLevel.Critical:
-                        if (exception != null)
-                        {
-                            _cmdlet.WriteError(new ErrorRecord(exception, eventId.ToString(), ErrorCategory.NotSpecified, null));
-                        }
-                        else
-                        {
-                            _cmdlet.WriteError(new ErrorRecord(new Exception(fullMessage), eventId.ToString(), ErrorCategory.NotSpecified, null));
-                        }
-                        break;
-                }
-            }
-
-            // Also write to console if no cmdlet context
-            if (_cmdlet == null)
-            {
-                Console.WriteLine($"[{logLevel}] {fullMessage}");
-                if (exception != null)
-                {
-                    Console.WriteLine(exception.ToString());
-                }
-            }
-        }
-
-        private class NullScope : IDisposable
-        {
-            public static NullScope Instance { get; } = new NullScope();
-            public void Dispose() { }
-        }
-    }
-
-    /// <summary>
-    /// Logger factory for creating PowerShell-aware loggers
-    /// </summary>
-    public class PowerShellLoggerFactory
-    {
-        private static ILoggerFactory _loggerFactory;
-        private static readonly object _lock = new object();
-
-        public static ILoggerFactory Instance
-        {
-            get
-            {
-                if (_loggerFactory == null)
-                {
-                    lock (_lock)
+                    switch (logLevel)
                     {
-                        if (_loggerFactory == null)
-                        {
-                            _loggerFactory = LoggerFactory.Create(builder =>
+                        case LogLevel.Trace:
+                        case LogLevel.Debug:
+                            _cmdlet.WriteDebug(fullMessage);
+                            break;
+                        case LogLevel.Information:
+                            _cmdlet.WriteVerbose(fullMessage);
+                            break;
+                        case LogLevel.Warning:
+                            _cmdlet.WriteWarning(fullMessage);
+                            break;
+                        case LogLevel.Error:
+                        case LogLevel.Critical:
+                            if (exception != null)
                             {
-                                builder
-                                    .SetMinimumLevel(LogLevel.Debug)
-                                    .AddConsole()
-                                    .AddDebug();
-
-                                // Add file logging if desired
-                                var logPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ApiUtils", "logs");
-                                if (!Directory.Exists(logPath))
-                                {
-                                    Directory.CreateDirectory(logPath);
-                                }
-                            });
-                        }
+                                _cmdlet.WriteError(new ErrorRecord(exception, "LogError", ErrorCategory.NotSpecified, null));
+                            }
+                            else
+                            {
+                                _cmdlet.WriteError(new ErrorRecord(new Exception(fullMessage), "LogError", ErrorCategory.NotSpecified, null));
+                            }
+                            break;
                     }
                 }
-                return _loggerFactory;
-            }
-        }
-
-        public static ILogger<T> CreateLogger<T>(PSCmdlet cmdlet = null)
-        {
-            var innerLogger = Instance.CreateLogger<T>();
-            return new PowerShellLogger<T>(cmdlet, innerLogger);
-        }
-
-        public static ILogger CreateLogger(string categoryName, PSCmdlet cmdlet = null)
-        {
-            var innerLogger = Instance.CreateLogger(categoryName);
-            return new PowerShellLogger(categoryName, cmdlet, innerLogger);
-        }
-
-        public static void SetLogLevel(LogLevel minLevel)
-        {
-            // Recreate factory with new log level
-            lock (_lock)
-            {
-                _loggerFactory?.Dispose();
-                _loggerFactory = LoggerFactory.Create(builder =>
+                else
                 {
-                    builder
-                        .SetMinimumLevel(minLevel)
-                        .AddConsole()
-                        .AddDebug();
-                });
+                    // Fallback to console if no cmdlet context
+                    Console.WriteLine($"[{logLevel}] {fullMessage}");
+                    if (exception != null)
+                    {
+                        Console.WriteLine(exception.ToString());
+                    }
+                }
+            }
+            catch
+            {
+                // Swallow logging errors to prevent breaking the main application
             }
         }
     }
 
     /// <summary>
-    /// Generic version of PowerShellLogger
+    /// Simple logger factory
     /// </summary>
-    public class PowerShellLogger<T> : ILogger<T>
+    public static class LoggerFactory
     {
-        private readonly PowerShellLogger _logger;
-
-        public PowerShellLogger(PSCmdlet cmdlet, ILogger<T> innerLogger = null)
+        public static IApiLogger CreateLogger(string categoryName, PSCmdlet cmdlet = null)
         {
-            _logger = new PowerShellLogger(typeof(T).Name, cmdlet, innerLogger);
+            return new PowerShellLogger(categoryName, cmdlet);
         }
 
-        public IDisposable BeginScope<TState>(TState state) => _logger.BeginScope(state);
-        public bool IsEnabled(LogLevel logLevel) => _logger.IsEnabled(logLevel);
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
+        public static IApiLogger CreateLogger<T>(PSCmdlet cmdlet = null)
         {
-            _logger.Log(logLevel, eventId, state, exception, formatter);
+            return new PowerShellLogger(typeof(T).Name, cmdlet);
+        }
+
+        public static void SetLogLevel(LogLevel logLevel)
+        {
+            PowerShellLogger.SetMinimumLogLevel(logLevel);
         }
     }
 
@@ -177,50 +174,72 @@ namespace LarryWisherMan.ApiUtils.Infrastructure.Logging
     /// </summary>
     public static class LoggerExtensions
     {
-        public static void LogHttpRequest(this ILogger logger, string method, string url, object headers = null, object body = null)
+        public static void LogHttpRequest(this IApiLogger logger, string method, string url, object headers = null, object body = null)
         {
-            logger.LogInformation("HTTP {Method} {Url}", method, url);
+            logger.LogInformation("HTTP {0} {1}", method, url);
 
             if (headers != null)
             {
-                logger.LogDebug("Request Headers: {Headers}", System.Text.Json.JsonSerializer.Serialize(headers));
+                logger.LogDebug("Request Headers: {0}", SerializeObject(headers));
             }
 
             if (body != null)
             {
-                var bodyStr = body is string s ? s : System.Text.Json.JsonSerializer.Serialize(body);
+                var bodyStr = body is string s ? s : SerializeObject(body);
                 if (bodyStr.Length > 1000)
                 {
                     bodyStr = bodyStr.Substring(0, 1000) + "... (truncated)";
                 }
-                logger.LogDebug("Request Body: {Body}", bodyStr);
+                logger.LogDebug("Request Body: {0}", bodyStr);
             }
         }
 
-        public static void LogHttpResponse(this ILogger logger, int statusCode, string statusDescription, string content = null, object headers = null)
+        public static void LogHttpResponse(this IApiLogger logger, int statusCode, string statusDescription, string content = null, object headers = null)
         {
-            var logLevel = statusCode >= 400 ? LogLevel.Warning : LogLevel.Information;
-            logger.Log(logLevel, "HTTP Response {StatusCode} {StatusDescription}", statusCode, statusDescription);
+            if (statusCode >= 400)
+            {
+                logger.LogWarning("HTTP Response {0} {1}", statusCode, statusDescription);
+            }
+            else
+            {
+                logger.LogInformation("HTTP Response {0} {1}", statusCode, statusDescription);
+            }
 
             if (headers != null)
             {
-                logger.LogDebug("Response Headers: {Headers}", System.Text.Json.JsonSerializer.Serialize(headers));
+                logger.LogDebug("Response Headers: {0}", SerializeObject(headers));
             }
 
             if (!string.IsNullOrEmpty(content))
             {
                 var contentStr = content.Length > 1000 ? content.Substring(0, 1000) + "... (truncated)" : content;
-                logger.LogDebug("Response Content: {Content}", contentStr);
+                logger.LogDebug("Response Content: {0}", contentStr);
             }
         }
 
-        public static void LogSessionOperation(this ILogger logger, string operation, string sessionName, object details = null)
+        public static void LogSessionOperation(this IApiLogger logger, string operation, string sessionName, object details = null)
         {
-            logger.LogInformation("Session {Operation}: {SessionName}", operation, sessionName);
+            logger.LogInformation("Session {0}: {1}", operation, sessionName);
 
             if (details != null)
             {
-                logger.LogDebug("Session Details: {Details}", System.Text.Json.JsonSerializer.Serialize(details));
+                logger.LogDebug("Session Details: {0}", SerializeObject(details));
+            }
+        }
+
+        private static string SerializeObject(object obj)
+        {
+            if (obj == null) return "null";
+            if (obj is string str) return str;
+
+            try
+            {
+                // Simple serialization for basic types
+                return obj.ToString();
+            }
+            catch
+            {
+                return "[Object]";
             }
         }
     }
