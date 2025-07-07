@@ -5,6 +5,9 @@ using System.Net;
 
 namespace LarryWisherMan.ApiUtils.Domain.Models
 {
+    /// <summary>
+    /// Represents a persistent API session with authentication and configuration
+    /// </summary>
     public class ApiSession
     {
         public string Name { get; set; }
@@ -20,6 +23,6 @@ namespace LarryWisherMan.ApiUtils.Domain.Models
         public bool SkipCertificateCheck { get; set; } = false;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime LastUsed { get; set; } = DateTime.UtcNow;
-        public IDictionary<string, object> CustomProperties { get; set;}= new Dictionary<string, object>();
+        public IDictionary<string, object> CustomProperties { get; set; } = new Dictionary<string, object>();
     }
 }
