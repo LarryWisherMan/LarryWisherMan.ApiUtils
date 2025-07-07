@@ -1,27 +1,38 @@
 using System;
 using System.Collections;
 using System.Management.Automation;
+using LarryWisherMan.ApiUtils.Commands.Abstract;
 
 namespace LarryWisherMan.ApiUtils.Commands
 {
     /// <summary>
     /// Remove-ApiSession - Deletes an API session
+    /// </summary>    /// <summary>
+    /// Remove-ApiSession - Deletes an API session
     /// </summary>
     [Cmdlet(VerbsCommon.Remove, "ApiSession", SupportsShouldProcess = true)]
-    public class RemoveApiSessionCommand : SessionApiCmdletBase
+    public class RemoveApiSessionCommand : SessionInputCmdletBase
     {
-        [Parameter(Position = 0, Mandatory = true, ValueFromPipeline = true)]
-        [ValidateNotNullOrEmpty]
-        public string Name { get; set; }
-
         protected override void ProcessRecord()
         {
             try
             {
-                if (ShouldProcess(Name, "Remove API Session"))
+                var sessionName = ResolveSessionName();
+
+                if (string.IsNullOrEmpty(sessionName))
                 {
-                    SessionService.DeleteSessionAsync(Name).GetAwaiter().GetResult();
-                    WriteVerbose($"Removed API session: {Name}");
+                    WriteError(new ErrorRecord(
+                        new ArgumentException("No session specified"),
+                        "NoSessionSpecified",
+                        ErrorCategory.InvalidArgument,
+                        this));
+                    return;
+                }
+
+                if (ShouldProcess(sessionName, "Remove API Session"))
+                {
+                    SessionService.DeleteSessionAsync(sessionName).GetAwaiter().GetResult();
+                    WriteVerbose($"Removed API session: {sessionName}");
                 }
             }
             catch (Exception ex)

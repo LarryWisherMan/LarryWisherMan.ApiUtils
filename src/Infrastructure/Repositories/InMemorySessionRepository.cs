@@ -12,34 +12,50 @@ namespace LarryWisherMan.ApiUtils.Infrastructure.Repositories
     /// </summary>
     public class InMemorySessionRepository : ISessionRepository
     {
-        private readonly Dictionary<string, ApiSession> _sessions = new Dictionary<string, ApiSession>();
+        private readonly Dictionary<string, ApiSession> _sessions = new Dictionary<string, ApiSession>(StringComparer.OrdinalIgnoreCase);
+        private readonly object _lock = new object();
 
         public Task<ApiSession> GetSessionAsync(string name)
         {
-            _sessions.TryGetValue(name, out var session);
-            return Task.FromResult(session);
+            lock (_lock)
+            {
+                _sessions.TryGetValue(name, out var session);
+                return Task.FromResult(session);
+            }
         }
 
         public Task<IEnumerable<ApiSession>> GetAllSessionsAsync()
         {
-            return Task.FromResult<IEnumerable<ApiSession>>(_sessions.Values.ToList());
+            lock (_lock)
+            {
+                return Task.FromResult<IEnumerable<ApiSession>>(_sessions.Values.ToList());
+            }
         }
 
         public Task SaveSessionAsync(ApiSession session)
         {
-            _sessions[session.Name] = session;
-            return Task.CompletedTask;
+            lock (_lock)
+            {
+                _sessions[session.Name] = session;
+                return Task.CompletedTask;
+            }
         }
 
         public Task DeleteSessionAsync(string name)
         {
-            _sessions.Remove(name);
-            return Task.CompletedTask;
+            lock (_lock)
+            {
+                _sessions.Remove(name);
+                return Task.CompletedTask;
+            }
         }
 
         public Task<bool> SessionExistsAsync(string name)
         {
-            return Task.FromResult(_sessions.ContainsKey(name));
+            lock (_lock)
+            {
+                return Task.FromResult(_sessions.ContainsKey(name));
+            }
         }
 
         public async Task UpdateLastUsedAsync(string name)
@@ -48,6 +64,28 @@ namespace LarryWisherMan.ApiUtils.Infrastructure.Repositories
             if (session != null)
             {
                 session.LastUsed = DateTime.UtcNow;
+            }
+        }
+
+        /// <summary>
+        /// Clear all sessions from memory
+        /// </summary>
+        public void Clear()
+        {
+            lock (_lock)
+            {
+                _sessions.Clear();
+            }
+        }
+
+        /// <summary>
+        /// Load sessions from another repository into memory
+        /// </summary>
+        public async Task LoadSessionsAsync(IEnumerable<ApiSession> sessions)
+        {
+            foreach (var session in sessions)
+            {
+                await SaveSessionAsync(session);
             }
         }
     }

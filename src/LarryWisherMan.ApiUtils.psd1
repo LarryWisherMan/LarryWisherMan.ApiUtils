@@ -76,6 +76,8 @@
         'New-ApiSession',
         'Get-ApiSession',
         'Remove-ApiSession',
+        'Set-ApiSession',
+        'Test-ApiSession',
         'Invoke-ApiRequest',
         'Invoke-ApiRestMethod'
     )

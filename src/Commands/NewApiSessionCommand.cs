@@ -2,11 +2,15 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Management.Automation;
+using LarryWisherMan.ApiUtils.Commands.Abstract;
 
 namespace LarryWisherMan.ApiUtils.Commands
 {
+    /// <summary>
+    /// New-ApiSession - Creates and saves an API session
+    /// </summary>
     [Cmdlet(VerbsCommon.New, "ApiSession")]
-    public class NewApiSessionCommand : SessionApiCmdletBase
+    public class NewApiSessionCommand : SessionManagementCmdletBase
     {
         [Parameter(Position = 0, Mandatory = true)]
         [ValidateNotNullOrEmpty]
@@ -17,19 +21,9 @@ namespace LarryWisherMan.ApiUtils.Commands
         public Uri BaseUri { get; set; }
 
         [Parameter]
-        public string AuthToken { get; set; }
+        public SwitchParameter SaveToFile { get; set; }
 
-        [Parameter]
-        public string AuthScheme { get; set; } = "Bearer";
-
-        [Parameter]
-        public Hashtable Headers { get; set; }
-
-        [Parameter]
-        public PSCredential Credential { get; set; }
-
-        [Parameter]
-        public SwitchParameter PassThru { get; set; }
+        // AuthToken, AuthScheme, Headers, Credential, PassThru inherited from SessionManagementCmdletBase
 
         protected override void ProcessRecord()
         {
@@ -41,33 +35,23 @@ namespace LarryWisherMan.ApiUtils.Commands
 
                 if (Headers != null)
                 {
-                    // Initialize DefaultHeaders if it's null
-                    if (session.DefaultHeaders == null)
-                    {
-                        session.DefaultHeaders = new Dictionary<string, string>();
-                    }
-
                     foreach (DictionaryEntry header in Headers)
                     {
-                        var key = header.Key?.ToString();
-                        var value = header.Value?.ToString();
-
-                        if (!string.IsNullOrEmpty(key))
-                        {
-                            session.DefaultHeaders[key] = value ?? string.Empty;
-                        }
+                        session.DefaultHeaders[header.Key.ToString()] = header.Value?.ToString();
                     }
 
-                    SessionService.UpdateSessionAsync(session).GetAwaiter().GetResult();
                 }
 
                 if (Credential != null)
                 {
                     session.Credentials = Credential.GetNetworkCredential();
-                    SessionService.UpdateSessionAsync(session).GetAwaiter().GetResult();
                 }
 
-                WriteVerbose($"Created API session: {Name}");
+                // Save with explicit file control using the helper method
+                var saveToFile = ShouldSaveToFile(SaveToFile);
+                GetCompositeRepository().SaveSessionAsync(session, saveToFile).Wait();
+
+                WriteVerbose($"Created API session: {Name}" + (saveToFile ? " (saved to file)" : " (memory only)"));
 
                 if (PassThru)
                 {
