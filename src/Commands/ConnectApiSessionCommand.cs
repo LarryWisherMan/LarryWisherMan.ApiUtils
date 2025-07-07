@@ -30,6 +30,12 @@ namespace LarryWisherMan.ApiUtils.Commands
         public string TokenPropertyName { get; set; } = "access_token";
 
         [Parameter]
+        public int TimeoutSec { get; set; } = 30;
+
+        [Parameter]
+        public SwitchParameter SkipCertificateCheck { get; set; }
+
+        [Parameter]
         public Hashtable LoginBody { get; set; }
 
         [Parameter]
@@ -107,22 +113,52 @@ namespace LarryWisherMan.ApiUtils.Commands
                 var loginBodyJson = Newtonsoft.Json.JsonConvert.SerializeObject(loginBodyDict);
                 Logger.LogDebug("Performing authentication to endpoint: {0}", LoginEndpoint);
 
-                // Perform login request
-                var loginResponse = SessionService.InvokeAsync(new Domain.Models.ApiRequest
+                Domain.Models.ApiResponse loginResponse;
+                try
                 {
-                    SessionName = sessionName,
-                    Uri = new Uri(LoginEndpoint, UriKind.RelativeOrAbsolute),
-                    Method = "POST",
-                    Body = loginBodyJson,
-                    Headers = new System.Collections.Generic.Dictionary<string, string>
+                    // Perform login request with timeout and error handling
+                    loginResponse = SessionService.InvokeAsync(new Domain.Models.ApiRequest
                     {
-                        ["Content-Type"] = ContentType
-                    }
-                }, new Domain.Models.ApiRequestOptions
+                        SessionName = sessionName,
+                        Uri = new Uri(LoginEndpoint, UriKind.RelativeOrAbsolute),
+                        Method = "POST",
+                        Body = loginBodyJson,
+                        Headers = new System.Collections.Generic.Dictionary<string, string>
+                        {
+                            ["Content-Type"] = ContentType
+                        },
+                        Timeout = TimeoutSec > 0 ? TimeSpan.FromSeconds(TimeoutSec) : null,
+                        SkipCertificateValidation = SkipCertificateCheck.IsPresent ? (bool?)true : null
+                    }, new Domain.Models.ApiRequestOptions
+                    {
+                        ParseContent = true,
+                        ThrowOnError = false
+                    }).GetAwaiter().GetResult();
+
+                    Logger.LogDebug("Login request completed with status: {0}", loginResponse.StatusCode);
+                }
+                catch (System.Threading.Tasks.TaskCanceledException ex)
                 {
-                    ParseContent = true,
-                    ThrowOnError = false
-                }).GetAwaiter().GetResult();
+                    var timeoutMsg = $"Authentication request timed out after {TimeoutSec} seconds. Check network connectivity to {BaseUri}";
+                    Logger.LogError("Authentication timeout: {0}", timeoutMsg);
+                    WriteError(new ErrorRecord(
+                        new TimeoutException(timeoutMsg, ex),
+                        "AuthenticationTimeout",
+                        ErrorCategory.OperationTimeout,
+                        this));
+                    return;
+                }
+                catch (System.Net.Http.HttpRequestException ex)
+                {
+                    var networkMsg = $"Network error connecting to {BaseUri}: {ex.Message}";
+                    Logger.LogError("Network error: {0}", networkMsg);
+                    WriteError(new ErrorRecord(
+                        ex,
+                        "NetworkError",
+                        ErrorCategory.ConnectionError,
+                        this));
+                    return;
+                }
 
                 if (!loginResponse.IsSuccessStatusCode)
                 {
