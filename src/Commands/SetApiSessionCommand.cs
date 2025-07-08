@@ -14,25 +14,9 @@ namespace LarryWisherMan.ApiUtils.Commands
     public class SetApiSessionCommand : SessionInputCmdletBase
     {
         [Parameter]
-        public Uri BaseUri { get; set; }
+        public Uri BaseUri { get; set; } // Only keep this if it is unique/not in base
 
-        [Parameter]
-        public string AuthToken { get; set; }
-
-        [Parameter]
-        public string AuthScheme { get; set; }
-
-        [Parameter]
-        public Hashtable Headers { get; set; }
-
-        [Parameter]
-        [Credential]
-        public PSCredential Credential { get; set; }
-
-        [Parameter]
-        public SwitchParameter PassThru { get; set; }
-
-        // SessionName and Session inherited from SessionInputCmdletBase
+        // SessionName and Session inherited
 
         protected override void ProcessRecord()
         {

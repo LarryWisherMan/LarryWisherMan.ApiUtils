@@ -10,7 +10,7 @@ namespace LarryWisherMan.ApiUtils.Commands
     /// New-ApiSession - Creates and saves an API session
     /// </summary>
     [Cmdlet(VerbsCommon.New, "ApiSession")]
-    public class NewApiSessionCommand : SessionManagementCmdletBase
+    public class NewApiSessionCommand : SessionApiCmdletBase
     {
         [Parameter(Position = 0, Mandatory = true)]
         [ValidateNotNullOrEmpty]

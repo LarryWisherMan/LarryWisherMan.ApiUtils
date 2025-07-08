@@ -14,7 +14,7 @@ namespace LarryWisherMan.ApiUtils.Commands.Abstract
     /// <summary>
     /// Base class for session-aware API cmdlets with lightweight logging support
     /// </summary>
-    public abstract class SessionApiCmdletBase : PSCmdlet, IDisposable
+    public abstract class SessionApiCmdletBase : ApiCmdletCommonBase, IDisposable
     {
         protected IApiSessionService SessionService { get; private set; }
         protected ISessionHttpService HttpService { get; private set; }
@@ -31,9 +31,6 @@ namespace LarryWisherMan.ApiUtils.Commands.Abstract
         /// Log level for this cmdlet (can be overridden)
         /// </summary>
         protected virtual LogLevel LogLevel => LogLevel.Information;
-
-        [Parameter]
-        public SwitchParameter EnableDebugLogging { get; set; }
 
         protected override void BeginProcessing()
         {

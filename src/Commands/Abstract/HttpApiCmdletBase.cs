@@ -15,52 +15,6 @@ namespace LarryWisherMan.ApiUtils.Commands.Abstract
     {
         #region Common HTTP Parameters
 
-        [Parameter(Position = 1)]
-        public Uri Uri { get; set; }
-
-        [Parameter]
-        public string Method { get; set; } = "GET";
-
-        [Parameter]
-        public Hashtable Headers { get; set; }
-
-        [Parameter]
-        public string UserAgent { get; set; }
-
-        [Parameter]
-        public string ContentType { get; set; }
-
-        [Parameter(ValueFromPipeline = true)]
-        public object Body { get; set; }
-
-        [Parameter]
-        [Credential]
-        public PSCredential Credential { get; set; }
-
-        [Parameter]
-        public string AuthToken { get; set; }
-
-        [Parameter]
-        public string AuthScheme { get; set; }
-
-        [Parameter]
-        public SwitchParameter UseDefaultCredentials { get; set; }
-
-        [Parameter]
-        public int TimeoutSec { get; set; }
-
-        [Parameter]
-        public int MaximumRedirection { get; set; }
-
-        [Parameter]
-        public SwitchParameter SkipCertificateCheck { get; set; }
-
-        [Parameter]
-        public string OutFile { get; set; }
-
-        [Parameter]
-        public SwitchParameter PassThru { get; set; }
-
         #endregion
 
         protected override void ProcessRecord()

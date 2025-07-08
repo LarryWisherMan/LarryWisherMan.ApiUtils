@@ -18,10 +18,6 @@ namespace LarryWisherMan.ApiUtils.Commands
         public Uri BaseUri { get; set; }
 
         [Parameter(Position = 2, Mandatory = true)]
-        [Credential]
-        public PSCredential Credential { get; set; }
-
-        [Parameter(Position = 3, Mandatory = true)]
         [ValidateNotNullOrEmpty]
         public string LoginEndpoint { get; set; }
 
@@ -30,19 +26,7 @@ namespace LarryWisherMan.ApiUtils.Commands
         public string TokenPropertyName { get; set; } = "access_token";
 
         [Parameter]
-        public int TimeoutSec { get; set; } = 30;
-
-        [Parameter]
-        public SwitchParameter SkipCertificateCheck { get; set; }
-
-        [Parameter]
         public Hashtable LoginBody { get; set; }
-
-        [Parameter]
-        public Hashtable Headers { get; set; }
-
-        [Parameter]
-        public string ContentType { get; set; } = "application/json";
 
         [Parameter]
         public string UsernameProperty { get; set; } = "username";
@@ -51,19 +35,16 @@ namespace LarryWisherMan.ApiUtils.Commands
         public string PasswordProperty { get; set; } = "password";
 
         [Parameter]
-        public string AuthScheme { get; set; } = "Bearer";
-
-        [Parameter]
-        public SwitchParameter PassThru { get; set; }
-
-        [Parameter]
-        public SwitchParameter SaveToFile { get; set; }
-
-        [Parameter]
         public string MFACode { get; set; }
 
         [Parameter]
         public string MFAPropertyName { get; set; } = "passcode";
+
+        [Parameter]
+        public SwitchParameter SaveToFile { get; set; }
+
+        // All other parameters (Credential, TimeoutSec, Headers, ContentType, AuthScheme, PassThru, SkipCertificateCheck, etc.)
+        // are now inherited and should NOT be redeclared!
 
         protected override void ProcessRecord()
         {

@@ -15,8 +15,6 @@ namespace LarryWisherMan.ApiUtils.Commands
     [Cmdlet(VerbsCommunications.Disconnect, "ApiSession")]
     public class DisconnectApiSessionCommand : SessionInputCmdletBase
     {
-        [Parameter]
-        public SwitchParameter PassThru { get; set; }
 
         protected override void ProcessRecord()
         {

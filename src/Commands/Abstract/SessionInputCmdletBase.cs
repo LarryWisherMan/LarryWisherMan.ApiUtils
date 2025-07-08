@@ -1,6 +1,3 @@
-
-
-using System;
 using System.Management.Automation;
 using System.Threading.Tasks;
 using LarryWisherMan.ApiUtils.Domain.Models;
@@ -35,7 +32,6 @@ namespace LarryWisherMan.ApiUtils.Commands.Abstract
 
             if (!string.IsNullOrEmpty(SessionName))
             {
-                // FIX: Use ConfigureAwait(false) to avoid deadlock in PS 5.1
                 return SessionService.GetSessionAsync(SessionName)
                     .ConfigureAwait(false)
                     .GetAwaiter()
@@ -60,5 +56,4 @@ namespace LarryWisherMan.ApiUtils.Commands.Abstract
             return null;
         }
     }
-
 }
