@@ -69,6 +69,9 @@ namespace LarryWisherMan.ApiUtils.Commands.Abstract
             {
                 Logger.LogInformation("Processing HTTP request...");
 
+                // Pre-resolve session to avoid nested async calls
+                var session = ResolveSession();
+
                 var request = CreateApiRequest();
                 LogRequestDetails(request);
 
@@ -76,7 +79,9 @@ namespace LarryWisherMan.ApiUtils.Commands.Abstract
                 Logger.LogDebug("Request options: ParseContent={0}, ThrowOnError={1}",
                     options.ParseContent, options.ThrowOnError);
 
+                // Use ConfigureAwait(false) to prevent deadlock in PS 5.1
                 var response = SessionService.InvokeAsync(request, options)
+                    .ConfigureAwait(false)
                     .GetAwaiter()
                     .GetResult();
 
@@ -183,6 +188,16 @@ namespace LarryWisherMan.ApiUtils.Commands.Abstract
                 }
             }
 
+            // --- NEW LOGIC: Default ContentType if POST/PUT and body ---
+            string contentType = ContentType;
+            if (string.IsNullOrWhiteSpace(contentType) &&
+                (Method.Equals("POST", StringComparison.OrdinalIgnoreCase) || Method.Equals("PUT", StringComparison.OrdinalIgnoreCase)) &&
+                Body != null &&
+                !(Body is byte[]))
+            {
+                contentType = "application/json";
+            }
+
             var request = new ApiRequest
             {
                 SessionName = ResolveSessionName(),
@@ -190,7 +205,7 @@ namespace LarryWisherMan.ApiUtils.Commands.Abstract
                 Method = Method,
                 Headers = headers,
                 UserAgent = UserAgent,
-                ContentType = ContentType,
+                ContentType = contentType,
                 Body = Body,
                 Credentials = Credential?.GetNetworkCredential(),
                 AuthenticationToken = AuthToken,
@@ -202,9 +217,10 @@ namespace LarryWisherMan.ApiUtils.Commands.Abstract
                 OutputFilePath = OutFile
             };
 
-            Logger.LogDebug("Created API request for session: {0}", request.SessionName ?? "NONE");
+            Logger.LogDebug("Created API request for session: {0} (Content-Type: {1})", request.SessionName ?? "NONE", contentType ?? "(null)");
             return request;
         }
+
 
         protected virtual ApiRequestOptions CreateRequestOptions()
         {

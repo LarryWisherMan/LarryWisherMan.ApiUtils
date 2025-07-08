@@ -25,7 +25,7 @@ namespace LarryWisherMan.ApiUtils.Commands.Abstract
         /// Global preference for saving to file by default
         /// Can be overridden by individual cmdlet parameters
         /// </summary>
-        protected virtual bool DefaultSaveToFile => true;
+        protected virtual bool DefaultSaveToFile => false;
 
         /// <summary>
         /// Log level for this cmdlet (can be overridden)

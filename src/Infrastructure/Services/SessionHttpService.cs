@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using LarryWisherMan.ApiUtils.Domain.Interfaces;
@@ -14,51 +15,47 @@ namespace LarryWisherMan.ApiUtils.Infrastructure.Services
     /// </summary>
     public class SessionHttpService : ISessionHttpService, IDisposable
     {
-        private readonly HttpClient _httpClient;
-        private readonly HttpClientHandler _handler;
         private bool _disposed = false;
-
-        public SessionHttpService()
-        {
-            _handler = new HttpClientHandler();
-            _httpClient = new HttpClient(_handler);
-        }
 
         public async Task<HttpResponseMessage> SendAsync(ResolvedApiRequest request)
         {
-            ConfigureHandler(request);
-            ConfigureClient(request);
+            using (var handler = CreateHandler(request))
+            using (var client = new HttpClient(handler))
+            using (var httpRequest = CreateHttpRequestMessage(request))
+            {
+                // Per-request client setup
+                client.Timeout = (request.Timeout != TimeSpan.Zero) ? request.Timeout : TimeSpan.FromSeconds(100);
+                client.DefaultRequestHeaders.ExpectContinue = false;
+                // User-Agent set per message, not here!
 
-            using var httpRequest = CreateHttpRequestMessage(request);
-            return await _httpClient.SendAsync(httpRequest);
+                // For .NET Framework: Avoid Expect: 100-Continue globally
+                System.Net.ServicePointManager.Expect100Continue = false;
+
+                return await client.SendAsync(httpRequest);
+            }
         }
 
-        private void ConfigureHandler(ResolvedApiRequest request)
+        private HttpClientHandler CreateHandler(ResolvedApiRequest request)
         {
-            _handler.MaxAutomaticRedirections = request.MaxRedirections;
+            var handler = new HttpClientHandler
+            {
+                MaxAutomaticRedirections = (request.MaxRedirections > 0) ? request.MaxRedirections : 50,
+                AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
+                UseProxy = true,
+                Proxy = WebRequest.DefaultWebProxy
+            };
+
+
 
             if (request.SkipCertificateValidation)
-            {
-                _handler.ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => true;
-            }
+                handler.ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => true;
 
             if (request.Credentials != null)
-            {
-                _handler.Credentials = request.Credentials;
-            }
+                handler.Credentials = request.Credentials;
             else if (request.UseDefaultCredentials)
-            {
-                _handler.UseDefaultCredentials = true;
-            }
-        }
+                handler.UseDefaultCredentials = true;
 
-        private void ConfigureClient(ResolvedApiRequest request)
-        {
-            _httpClient.Timeout = request.Timeout;
-
-            // Clear and set user agent
-            _httpClient.DefaultRequestHeaders.Clear();
-            _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd(request.UserAgent);
+            return handler;
         }
 
         private HttpRequestMessage CreateHttpRequestMessage(ResolvedApiRequest request)
@@ -66,15 +63,17 @@ namespace LarryWisherMan.ApiUtils.Infrastructure.Services
             var httpMethod = new HttpMethod(request.Method.ToUpperInvariant());
             var httpRequest = new HttpRequestMessage(httpMethod, request.Uri);
 
-            // Add all headers including authentication
+            // Add per-request headers
             AddHeaders(httpRequest, request);
             AddAuthentication(httpRequest, request);
 
+            // Set User-Agent header here (not on the client)
+            if (!string.IsNullOrWhiteSpace(request.UserAgent))
+                httpRequest.Headers.UserAgent.ParseAdd(request.UserAgent);
+
             // Add content if present
             if (request.Body != null)
-            {
                 httpRequest.Content = CreateHttpContent(request.Body, request.ContentType);
-            }
 
             return httpRequest;
         }
@@ -120,6 +119,11 @@ namespace LarryWisherMan.ApiUtils.Infrastructure.Services
 
         private HttpContent CreateHttpContent(object body, string contentType)
         {
+            string ct = contentType;
+            if (string.IsNullOrEmpty(ct) && (body is string || body is IDictionary || body is not null))
+            {
+                ct = "application/json"; // Default for JSON
+            }
             HttpContent content = body switch
             {
                 string stringBody => new StringContent(stringBody, System.Text.Encoding.UTF8),
@@ -127,12 +131,10 @@ namespace LarryWisherMan.ApiUtils.Infrastructure.Services
                 IDictionary dictionaryBody => CreateFormContent(dictionaryBody),
                 _ => new StringContent(body.ToString(), System.Text.Encoding.UTF8)
             };
-
-            if (!string.IsNullOrEmpty(contentType))
+            if (!string.IsNullOrEmpty(ct))
             {
-                content.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse(contentType);
+                content.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse(ct);
             }
-
             return content;
         }
 
@@ -152,21 +154,22 @@ namespace LarryWisherMan.ApiUtils.Infrastructure.Services
             return stringContent;
         }
 
+        protected virtual void Dispose(bool disposing)
+        {
+            if (_disposed) return;
+            if (disposing)
+            {
+                // Dispose managed resources
+            }
+            // Free unmanaged resources if any
+            _disposed = true;
+        }
         public void Dispose()
         {
             Dispose(true);
             GC.SuppressFinalize(this);
         }
 
-        protected virtual void Dispose(bool disposing)
-        {
-            if (!_disposed && disposing)
-            {
-                _httpClient?.Dispose();
-                _handler?.Dispose();
-                _disposed = true;
-            }
-        }
     }
 
 }
