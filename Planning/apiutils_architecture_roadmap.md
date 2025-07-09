@@ -1,225 +1,134 @@
-# ApiUtils Architecture Diagram & Build Roadmap
+Below is an **updated master-plan** that folds in everything we just added
+(short IDs, vault storage, typed-object conversion, helper cmdlets) and shows
+how to organise namespaces and PowerShell verb-noun naming so the module scales
+cleanly.
 
-## 🏗️ Clean Architecture Layers
+---
 
-```mermaid
-graph TB
-    subgraph "🎨 Presentation Layer (PowerShell Cmdlets)"
-        A[New-ApiSession]
-        B[Get-ApiSession]
-        C[Remove-ApiSession]
-        D[Invoke-ApiRequest]
-        E[Invoke-ApiRestMethod]
-        F[Update-ApiSession]
-    end
+## 🚧 Updated Road-map (v 1.2 → v 1.4)
 
-    subgraph "🧠 Application Layer (Business Logic)"
-        G[ApiSessionService]
-        H[RequestResolver]
-        I[ResponseProcessor]
-    end
+| Phase                                  | Deliverables                                                                                                 | ETA        |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ---------- |
+| **1 — Flatten bases** (done)           | `ApiCmdletBase`, `SessionCmdletBase`, `SessionInputCmdletBase`; refactored core cmdlets                      | ✓          |
+| **2 — Short incremental IDs** (done)   | `SessionIdGenerator`, `Id` on `ApiSession`, `-Id` pipeline support                                           | ✓          |
+| **3 — SecretStore persistence** (done) | `SecretVaultOptions`, `SecretStoreProxy`, `SessionSecret` + `SessionMetadata`, `SecretJsonSessionRepository` | ✓          |
+| **4 — TTL & auto-purge**               | `ExpiresUtc`, `-TtlHours`, env `LWM_APIUTILS_SESSION_TTL_HOURS`, startup cleanup                             | **Week 1** |
+| **5 — Request/Response helpers**       | `New-ApiRequestBody`, `New-ApiQueryString`, `Show-ApiCurl`, `ConvertFrom-ApiError`                           | **Week 2** |
+| **6 — Typed-object conversion** (done) | `ConvertTo-ApiTypedObject`, `DynamicTypeFactory`, property-map support                                       | ✓          |
+| **7 — Docs & CI polish**               | README, about\_ help, Pester suite, multi-OS GitHub Actions                                                  | **Week 3** |
+| **8 — Public release v1.3**            | Gallery publish; blog / internal announcement                                                                | **Week 4** |
+| **9 — Stretch v1.4**                   | AsyncCmdlet + net6.0 TFM, SQLite repository option, parallel-safe ID generator                               | Q4         |
 
-    subgraph "🏛️ Domain Layer (Core Models)"
-        J[ApiSession]
-        K[ApiRequest]
-        L[ApiResponse]
-        M[Interfaces]
-    end
+---
 
-    subgraph "🔧 Infrastructure Layer (External Services)"
-        N[FileSessionRepository]
-        O[HttpClientService]
-        P[ContentParsers]
-        Q[FileService]
-    end
+## 📖 README (abridged skeleton)
 
-    A --> G
-    B --> G
-    C --> G
-    D --> G
-    E --> G
-    F --> G
-    
-    G --> H
-    G --> I
-    G --> N
-    
-    H --> N
-    H --> J
-    
-    O --> Q
-    I --> P
-    I --> Q
-    
-    N --> J
-```
+````markdown
+# LarryWisherMan.ApiUtils
 
-## 📋 Build Roadmap
+*A secure, session-aware toolkit for calling REST APIs from PowerShell 5.1 & 7+.*
 
-### Phase 1: Foundation (Start Here) 🏗️
+## Features
+| ✅ | Description |
+|----|-------------|
+| Session cmdlets | `New- / Get- / Set- / Remove- / Test-ApiSession` (short IDs, TTL, vault-encrypted secrets) |
+| Request cmdlets | `Invoke-ApiRestMethod` (JSON/XML parsing) & `Invoke-ApiRequest` (raw) |
+| Helpers | `New-ApiRequestBody`, `New-ApiQueryString`, `Show-ApiCurl`, `ConvertTo-ApiTypedObject` |
+| Security | Secrets stored in **SecretStore** vault, metadata in JSON; default TTL 24 h |
 
-**Goal**: Get basic session storage working
+## Quick start
+```powershell
+Install-Module LarryWisherMan.ApiUtils -Scope CurrentUser
 
-#### Step 1.1: Domain Models
-- [ ] Create `ApiSession` class
-  - Properties: Name, BaseUri, Headers, AuthToken, AuthScheme, etc.
-- [ ] Create basic interfaces: `ISessionRepository`
+# 1. create & persist a session
+Connect-ApiSession -Name prod -BaseUri https://api -LoginEndpoint /auth `
+                   -Credential $cred -SaveToFile
 
-#### Step 1.2: Basic Session Repository
-- [ ] Implement `FileSessionRepository`
-  - Save/Load sessions to JSON files
-  - Basic CRUD operations
-- [ ] Choose storage location (`~/.apiutils/sessions/`)
+# 2. reuse it anywhere
+Invoke-ApiRestMethod -Session prod -Uri '/users'
+````
 
-#### Step 1.3: Simple Session Management Cmdlet
-- [ ] Create `New-ApiSession` cmdlet
-- [ ] Create `Get-ApiSession` cmdlet
-- [ ] Test session persistence
+## Configuration
 
-**Milestone**: You can create and retrieve sessions
+| Setting                  | Env var                          | Default     |
+| ------------------------ | -------------------------------- | ----------- |
+| Default session TTL (h)  | `LWM_APIUTILS_SESSION_TTL_HOURS` | 24          |
+| Secret vault name        | `LWM_VAULT_NAME`                 | LWMApiUtils |
+| Vault unlock timeout (s) | `LWM_VAULT_TIMEOUT`              | 900         |
 
-### Phase 2: HTTP Foundation 🌐
+## Road-map
 
-**Goal**: Get basic HTTP requests working without sessions
+See [CHANGELOG.md](CHANGELOG.md) for planned features (typed-object mapping, SQLite backend, …).
 
-#### Step 2.1: HTTP Infrastructure
-- [ ] Create `HttpClientService`
-- [ ] Handle basic authentication (Bearer, Basic)
-- [ ] Basic request/response handling
+````
 
-#### Step 2.2: Simple Request Cmdlet
-- [ ] Create basic `Invoke-ApiRequest` (no session support yet)
-- [ ] Test with various HTTP methods
-- [ ] Handle different content types
+*(Full README—including badges, install instructions, advanced examples—can be generated whenever you’re ready.)*
 
-**Milestone**: You can make HTTP requests independently
+---
 
-### Phase 3: Session Integration 🔗
+## 🚀 Future Feature Back-log
 
-**Goal**: Connect sessions with HTTP requests
+| Priority | Idea | Notes |
+|----------|------|-------|
+| 🔜 | **`Measure-ApiLatency`** & **`Test-ApiEndpoint`** | perf + availability checks |
+| 🔜 | **`Renew-ApiSessionToken`** | explicit refresh flow |
+| 🔜 | **Multipart upload helper** | `New-ApiMultipartFormData` |
+| 🌓 | **SQLite persistence option** | single-file DB, indexed look-ups |
+| 🌓 | **AsyncCmdlet + net6.0 target** | real async for PS 7+ |
+| 🌓 | **Secret vault migration cmdlet** | move secrets to another vault / password |
+| 🌒 | **Integrated telemetry (opt-in)** | cmdlet timing, expiry stats |
 
-#### Step 3.1: Request Resolution
-- [ ] Create `RequestResolver` service
-- [ ] Merge session config with request overrides
-- [ ] Handle relative vs absolute URLs
+---
 
-#### Step 3.2: Session-Aware Requests
-- [ ] Add session support to `Invoke-ApiRequest`
-- [ ] Add session support to `Invoke-ApiRestMethod`
-- [ ] Test session + override scenarios
+## 🗂 Folder & Namespace Layout
 
-**Milestone**: You can use sessions for requests
+```text
+src
+├─ Commands
+│  ├─ Core           (Invoke-*, Connect-*)
+│  ├─ Session        (New-*, Get-*, Remove-*, …)
+│  └─ Utilities      (New-ApiRequestBody, Show-ApiCurl, ConvertTo-ApiTypedObject)
+├─ Domain
+│  └─ Models         (ApiSession, SessionMetadata, SessionSecret)
+├─ Infrastructure
+│  ├─ Parsers        (JsonContentParser, XmlContentParser, PlainTextParser)
+│  └─ Repositories   (SecretJsonSessionRepository, …)
+└─ Runtime
+   ├─ GlobalServices.cs
+   ├─ SecretStoreProxy.cs
+   ├─ SessionIdGenerator.cs
+   └─ DynamicTypeFactory.cs
+````
 
-### Phase 4: Content Handling 📄
+| Namespace                                               | Contains                                   |                               |                             |
+| ------------------------------------------------------- | ------------------------------------------ | ----------------------------- | --------------------------- |
+| \`LarryWisherMan.ApiUtils.Commands.\[Core               | Session                                    | Utilities]\`                  | Cmdlet classes (`*Command`) |
+| `LarryWisherMan.ApiUtils.Domain.Models`                 | POCOs (`ApiSession`, `SessionSecret`, …)   |                               |                             |
+| \`LarryWisherMan.ApiUtils.Infrastructure.\[Repositories | Parsers]\`                                 | disk/db code, content parsing |                             |
+| `LarryWisherMan.ApiUtils.Runtime`                       | app-lifetime helpers (vault proxy, ID gen) |                               |                             |
 
-**Goal**: Parse responses intelligently
+---
 
-#### Step 4.1: Content Parsers
-- [ ] Create `IContentParser` interface
-- [ ] Implement `JsonContentParser`
-- [ ] Implement `XmlContentParser`
-- [ ] Create `CompositeContentParser`
+## 📜 Verb-Noun Naming Convention
 
-#### Step 4.2: Response Processing
-- [ ] Create `ResponseProcessor`
-- [ ] Integrate with `Invoke-ApiRestMethod`
-- [ ] Handle file output
+* **Verb** — follow Microsoft-approved verbs (`Invoke`, `New`, `Get`, `Set`, `Remove`, `Test`, `ConvertTo`, `ConvertFrom`, `Show`, `Measure`, `Enable`, `Disable`).
+* **Noun** — start with **`Api`** to avoid collisions and keep IntelliSense grouped (`ApiSession`, `ApiRequestBody`, `ApiTypedObject`).
 
-**Milestone**: Responses are parsed correctly
+Examples:
 
-### Phase 5: Advanced Features ⚡
+| Category         | Cmdlet                                                           |
+| ---------------- | ---------------------------------------------------------------- |
+| **Session Mgmt** | `New-ApiSession`, `Remove-ApiSession`, `Test-ApiSession`         |
+| **HTTP**         | `Invoke-ApiRestMethod`, `Invoke-ApiRequest`                      |
+| **Helpers**      | `New-ApiQueryString`, `ConvertTo-ApiTypedObject`, `Show-ApiCurl` |
 
-**Goal**: Polish and advanced functionality
+---
 
-#### Step 5.1: Session Management
-- [ ] Create `Remove-ApiSession`
-- [ ] Create `Update-ApiSession`
-- [ ] Add session validation
-- [ ] Session usage tracking
+## ✅ Next Actions
 
-#### Step 5.2: Enhanced Authentication
-- [ ] Support multiple auth schemes
-- [ ] Credential handling
-- [ ] Token refresh (if needed)
+1. **Merge** refactored bases & short-ID code → `feature/refactor-base` branch.
+2. **Implement** TTL / auto-purge logic (Phase 4).
+3. **Add** helper cmdlets (Phase 5).
+4. **Write** README / about\_ help and bump version to `1.2.0-preview`.
 
-#### Step 5.3: Error Handling & Logging
-- [ ] Consistent error handling
-- [ ] Verbose/Debug output
-- [ ] Better validation
-
-**Milestone**: Production-ready module
-
-### Phase 6: Testing & Documentation 📚
-
-#### Step 6.1: Testing
-- [ ] Unit tests for core logic
-- [ ] Integration tests
-- [ ] Pester tests for cmdlets
-
-#### Step 6.2: Documentation
-- [ ] Help documentation
-- [ ] Usage examples
-- [ ] Best practices guide
-
-## 🗂️ Suggested Project Structure
-
-```
-LarryWisherMan.ApiUtils/
-├── src/
-│   ├── Domain/
-│   │   ├── Models/
-│   │   │   ├── ApiSession.cs
-│   │   │   ├── ApiRequest.cs
-│   │   │   └── ApiResponse.cs
-│   │   └── Interfaces/
-│   │       ├── ISessionRepository.cs
-│   │       ├── IHttpClientService.cs
-│   │       └── IContentParser.cs
-│   ├── Infrastructure/
-│   │   ├── Repositories/
-│   │   │   └── FileSessionRepository.cs
-│   │   ├── Services/
-│   │   │   ├── HttpClientService.cs
-│   │   │   └── FileService.cs
-│   │   └── Parsers/
-│   │       ├── JsonContentParser.cs
-│   │       └── XmlContentParser.cs
-│   ├── Application/
-│   │   └── Services/
-│   │       ├── ApiSessionService.cs
-│   │       ├── RequestResolver.cs
-│   │       └── ResponseProcessor.cs
-│   └── Commands/
-│       ├── NewApiSessionCommand.cs
-│       ├── GetApiSessionCommand.cs
-│       ├── InvokeApiRequestCommand.cs
-│       └── InvokeApiRestMethodCommand.cs
-├── tests/
-└── docs/
-```
-
-## 🎯 Key Design Decisions to Make
-
-1. **Session Storage Format**: JSON vs XML vs binary
-2. **Session Location**: User profile vs module directory
-3. **Authentication Strategy**: How to handle different auth types
-4. **URL Resolution**: How to combine base URI + relative paths
-5. **Configuration Precedence**: Request params vs session defaults
-6. **Error Handling**: Throw exceptions vs return error objects
-
-## 🚀 Quick Start Strategy
-
-**Weekend 1**: Get Phase 1 working (basic session CRUD)
-**Weekend 2**: Get Phase 2 working (basic HTTP without sessions)  
-**Weekend 3**: Get Phase 3 working (session + HTTP integration)
-**Weekend 4**: Polish and Phase 4-6
-
-## 💡 Pro Tips
-
-1. **Start Simple**: Don't over-engineer early - get something working first
-2. **Test Early**: Create test scenarios for each phase
-3. **Incremental**: Each phase should build working functionality
-4. **Focus**: One layer at a time, don't jump around
-5. **Real Usage**: Test with actual APIs you use regularly
-
-This approach lets you build incrementally, test each piece, and have a working module at each milestone!
+Ping me whenever you start the next phase or need a detailed scaffold for the helper cmdlets.

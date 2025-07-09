@@ -1,0 +1,29 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>LarryWisherMan.ApiUtils</RootNamespace>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <Nullable>enable</Nullable>
+    <LangVersion>9.0</LangVersion>
+  </PropertyGroup>
+
+  <!-- Runtime packages needed by PowerShell 5.1 / .NET Fx -->
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json"
+      Version="13.0.3"
+      PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection"
+      Version="9.0.0"
+      PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- Optional GitVersion -->
+  <ItemGroup>
+    <PackageReference Include="GitVersion.MsBuild"
+      Version="5.12.0"
+      PrivateAssets="all"
+      IncludeAssets="runtime; build" />
+  </ItemGroup>
+
+</Project>

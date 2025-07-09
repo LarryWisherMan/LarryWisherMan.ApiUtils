@@ -12,7 +12,8 @@
     RootModule             = 'LarryWisherMan.ApiUtils.psm1'
 
     # Version number of this module.
-    ModuleVersion          = '2.0.1'
+    ModuleVersion          = '#{ModuleVersion}'  #
+
 
     # Supported PSEditions
     CompatiblePSEditions   = @('Desktop', 'Core')
@@ -51,7 +52,11 @@
     # ProcessorArchitecture = ''
 
     # Modules that must be imported into the global environment prior to importing this module
-    RequiredModules        = @()
+    RequiredModules        = @(
+        @{ ModuleName = 'Microsoft.PowerShell.SecretManagement'; ModuleVersion = '1.1.2' },
+        @{ ModuleName = 'Microsoft.PowerShell.SecretStore'     ; ModuleVersion = '1.1.2' }
+    )
+
 
     # Assemblies that must be loaded prior to importing this module
     RequiredAssemblies     = @()
@@ -108,6 +113,7 @@
             # Tags applied to this module. These help with module discovery in online galleries.
             # Tags = @()
 
+            VersionTag   = '#{VersionTag}'
             # A URL to the license for this module.
             # LicenseUri = ''
 

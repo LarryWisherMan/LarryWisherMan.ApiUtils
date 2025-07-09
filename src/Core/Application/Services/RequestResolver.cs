@@ -80,27 +80,17 @@ namespace LarryWisherMan.ApiUtils.Application.Services
             throw new ArgumentException("Relative URI requires a session with BaseUri");
         }
 
-        private Dictionary<string, string> MergeHeaders(IDictionary<string, string> sessionHeaders, IDictionary<string, string> requestHeaders)
+        private Dictionary<string,string> MergeHeaders(
+            IDictionary<string,string> sessionHeaders,
+            IDictionary<string,string> requestHeaders)
         {
-            var merged = new Dictionary<string, string>();
+            var merged = new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);
 
-            // Add session headers first
             if (sessionHeaders != null)
-            {
-                foreach (var header in sessionHeaders)
-                {
-                    merged[header.Key] = header.Value;
-                }
-            }
+                foreach (var kvp in sessionHeaders) merged[kvp.Key] = kvp.Value;
 
-            // Override with request headers
             if (requestHeaders != null)
-            {
-                foreach (var header in requestHeaders)
-                {
-                    merged[header.Key] = header.Value;
-                }
-            }
+                foreach (var kvp in requestHeaders) merged[kvp.Key] = kvp.Value;
 
             return merged;
         }

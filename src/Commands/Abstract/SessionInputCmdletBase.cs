@@ -1,59 +1,50 @@
+using System;
 using System.Management.Automation;
-using System.Threading.Tasks;
 using LarryWisherMan.ApiUtils.Domain.Models;
 
 namespace LarryWisherMan.ApiUtils.Commands.Abstract
 {
-    public abstract class SessionInputCmdletBase : SessionApiCmdletBase
+    /// <summary>
+    /// Adds -Name, -Id, and -Session pipeline support to a SessionCmdletBase.
+    /// </summary>
+    public abstract class SessionInputCmdletBase<TResult> : SessionCmdletBase<TResult>
     {
-        #region Session Input Parameters
+        /* ── three mutually exclusive parameter sets ─────────── */
 
-        [Parameter(Position = 0, ParameterSetName = "ByName")]
-        [ValidateNotNullOrEmpty]
-        public string SessionName { get; set; }
+        [Parameter(Mandatory = true,
+                   Position = 0,
+                   ValueFromPipelineByPropertyName = true,
+                   ValueFromPipeline = true,
+                   ParameterSetName = "ByName")]
+        [Alias("SessionName")]
+        public string Name { get; set; }
 
-        [Parameter(ValueFromPipeline = true, ParameterSetName = "BySession")]
-        [ValidateNotNull]
+        [Parameter(Mandatory = true,
+                   ValueFromPipelineByPropertyName = true,
+                   ParameterSetName = "ById")]
+        public Guid Id { get; set; }    // can be Guid.Empty when not used
+
+        [Parameter(Mandatory = true,
+                   ValueFromPipeline = true,
+                   ParameterSetName = "ByObject")]
         public ApiSession Session { get; set; }
 
-        #endregion
-
-        protected string ResolveSessionName()
-        {
-            return Session?.Name ?? SessionName;
-        }
-
+        /* ── helper available to concrete cmdlets ────────────── */
         protected ApiSession ResolveSession()
         {
-            if (Session != null)
-            {
-                return Session;
-            }
+            if (Session != null) return Session;
 
-            if (!string.IsNullOrEmpty(SessionName))
-            {
-                return SessionService.GetSessionAsync(SessionName)
-                    .ConfigureAwait(false)
-                    .GetAwaiter()
-                    .GetResult();
-            }
+            if (ParameterSetName == "ById")
+                //return SessionService.GetSessionByIdAsync(Id).GetAwaiter().GetResult();
+
+                if (!string.IsNullOrEmpty(Name))
+                    return SessionService.GetSessionAsync(Name)
+                                         .GetAwaiter().GetResult();
 
             return null;
         }
 
-        protected async Task<ApiSession> ResolveSessionAsync()
-        {
-            if (Session != null)
-            {
-                return Session;
-            }
-
-            if (!string.IsNullOrEmpty(SessionName))
-            {
-                return await SessionService.GetSessionAsync(SessionName).ConfigureAwait(false);
-            }
-
-            return null;
-        }
+        protected string ResolveSessionName() =>
+            Session?.Name ?? Name;
     }
 }
