@@ -28,7 +28,7 @@
 
   <!-- Only compile Models -->
   <ItemGroup>
-    <Compile Include="Domain\Models\*.cs" />
+    <Compile Include="Domain\*\*.cs" />
   </ItemGroup>
 
   <!-- Prevent default compile of all *.cs -->
