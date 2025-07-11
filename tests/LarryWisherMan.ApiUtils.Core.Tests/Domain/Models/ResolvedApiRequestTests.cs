@@ -5,7 +5,7 @@ using FluentAssertions;
 using LarryWisherMan.ApiUtils.Domain.Models;
 using Xunit;
 
-namespace LarryWisherMan.ApiUtils.Tests.Domain.Models
+namespace LarryWisherMan.ApiUtils.Core.Tests.Domain.Models
 {
     public class ResolvedApiRequestTests
     {

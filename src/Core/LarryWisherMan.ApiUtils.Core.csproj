@@ -29,6 +29,8 @@
   <!-- Only compile Models -->
   <ItemGroup>
     <Compile Include="Domain\*\*.cs" />
+    <Compile Include="Infrastructure\Parsers\*.cs" />
+
   </ItemGroup>
 
   <!-- Prevent default compile of all *.cs -->

@@ -6,31 +6,44 @@ using LarryWisherMan.ApiUtils.Domain.Interfaces;
 namespace LarryWisherMan.ApiUtils.Infrastructure.Parsers
 {
     /// <summary>
-    /// Parses any <c>*json*</c> content-type into plain .NET objects so the
-    /// Core library stays independent of System.Management.Automation.
+    /// Parses <c>application/json</c> content into .NET primitives, dictionaries, and lists.
     /// </summary>
     public sealed class JsonContentParser : IContentParser
     {
-        public bool CanParse(string? contentType) =>
-            !string.IsNullOrEmpty(contentType) &&
-            contentType.IndexOf("json", StringComparison.OrdinalIgnoreCase) >= 0;
+        /// <inheritdoc />
+        public string ContentType => "application/json";
 
-        public object? Parse(string raw, string? _) =>
-            string.IsNullOrWhiteSpace(raw) ? null : ConvertToken(JToken.Parse(raw));
+        /// <inheritdoc />
+        public bool CanParse(string contentType)
+        {
+            // Defensive null handling even though interface says it's non-nullable
+            return !string.IsNullOrWhiteSpace(contentType) &&
+                contentType.IndexOf("json", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
 
-        /* ---------- helpers ---------- */
+        /// <inheritdoc />
+        public object Parse(string content, string contentType)
+        {
+            if (string.IsNullOrWhiteSpace(content))
+                return string.Empty;
 
-        private static object? ConvertToken(JToken token) => token.Type switch
+            // Safe: content is not null/empty here
+            var token = JToken.Parse(content);
+            return ConvertToken(token);
+        }
+
+        private static object ConvertToken(JToken token) => token.Type switch
         {
             JTokenType.Object => ConvertObject((JObject)token),
             JTokenType.Array => ConvertArray((JArray)token),
             JTokenType.Integer => (long)token,
             JTokenType.Float => (double)token,
-            JTokenType.String => (string)token,
+            JTokenType.String => token.ToString(),
             JTokenType.Boolean => (bool)token,
-            JTokenType.Null => null,
-            _ => token.ToString() // fallback for Date, Guid, etc.
+            JTokenType.Null => string.Empty,
+            _ => token.ToString()
         };
+
 
         private static Dictionary<string, object?> ConvertObject(JObject obj)
         {
