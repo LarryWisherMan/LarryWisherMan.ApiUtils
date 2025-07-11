@@ -1,10 +1,10 @@
 param
 (
     [Parameter()]
-    [System.String]$ProjectName = (property ProjectName $BuildInfo.ProjectName),
+    [System.String]$ProjectName = (property ProjectName $buildInfo.ProjectName),
 
     [Parameter()]
-    [System.String]$SourcePath = (property SourcePath ''),
+    [System.String]$SourcePath = (property SourcePath (Get-SamplerAbsolutePath -Path src)),
 
     [Parameter()]
     [System.String]
@@ -43,7 +43,6 @@ param
     [Parameter()]
     [bool]$IncludeDepsJson = (property IncludeDepsJson $BuildInfo.BinaryModuleBuildSettings.CopyOptions.IncludeDepsJson)
 )
-
 
 function FormatPSD1
 {
@@ -300,6 +299,65 @@ task Clean_Staging_Root {
         Write-Host "[clean] Staging directory not found, nothing to clean." -ForegroundColor Gray
     }
 }
+
+task Run_DotNet_Tests {
+    param (
+        [string[]] $Projects = $buildInfo.DotNetTest.Projects,
+        [string]   $Config = $buildInfo.DotNetTest.Configuration,
+        [bool]     $NoBuild = $buildInfo.DotNetTest.NoBuild,
+        [string]   $OutputDir = (Join-Path $OutputDirectory 'TestResults'),
+        [string]   $CoverageFormat = $buildInfo.DotNetTest.Output.CoverageFormat,
+        [string]   $CoverageFileName = $buildInfo.DotNetTest.Output.CoverageFileName
+    )
+
+    $null = New-Item -ItemType Directory -Path $OutputDir -Force
+
+    foreach ($project in $Projects)
+    {
+        $projectPath = Join-Path $BuildRoot "Tests" $Project "$Project.csproj"
+        $projectName = [System.IO.Path]::GetFileNameWithoutExtension($project)
+        $fileName = $CoverageFileName -replace '\$\(ProjectName\)', $projectName
+        $fileName = $fileName -replace '\$\(VersionTag\)', $global:GitVersion.SemVer
+        $coveragePath = Join-Path $OutputDir $fileName
+
+        $Params = @(
+            'test', "`"$projectPath`"",
+            '--configuration', $Config,
+            '--results-directory', "`"$OutputDir`"",
+            '--logger:trx',
+            "/p:CollectCoverage=true",
+            "/p:CoverletOutputFormat=$CoverageFormat",
+            "/p:CoverletOutput=$coveragePath"
+        )
+
+        if ($NoBuild)
+        {
+            $Params += '--no-build'
+        }
+
+        write-build Yellow ($Params -join " ")
+        Start-Process 'dotnet' -ArgumentList $Params -NoNewWindow -Wait
+        Write-Host "[test] Coverage file → $coveragePath" -ForegroundColor Green
+    }
+}
+
+
+task Clean_TestResults {
+    param (
+        [string] $ResultsPath = (Join-Path $OutputDirectory 'TestResults')
+    )
+
+    if (Test-Path $ResultsPath)
+    {
+        Write-Host "[clean] Removing test results at: $ResultsPath" -ForegroundColor DarkGray
+        Remove-Item -Path $ResultsPath -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    # Recreate empty folder
+    $null = New-Item -ItemType Directory -Path $ResultsPath -Force
+    Write-Host "[clean] Created fresh test results directory → $ResultsPath" -ForegroundColor Green
+}
+
 
 
 # ─────────────────────────────────────────────────────────────────────────────

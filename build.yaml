@@ -3,7 +3,7 @@
 ####################################################
 VersionedOutputDirectory: true
 BuiltModuleSubdirectory: module
-
+ProjectName: "LarryWisherMan.ApiUtils"
 
 ####################################################
 #          BinaryModuleBuildSettings Configuration #
@@ -27,13 +27,10 @@ BinaryModuleBuildSettings:
     - netstandard2.0
   DotNetVerbosity: minimal
   Configuration: Release
-  ModuleStagingSubdirectory: "bin/ModuleStaging"  # ← new
+  ModuleStagingSubdirectory: "bin/ModuleStaging"
   CopyOptions:
     IncludePdb: false
     IncludeDepsJson: false
-
-
-
 
 
 
@@ -59,6 +56,21 @@ ModuleBuildTasks:
     - '*.build.Sampler.ib.tasks'
   Sampler.GitHubTasks:
     - '*.ib.tasks'
+
+
+
+####################################################
+#             DOTNET TEST Configuration            #
+####################################################
+
+DotNetTest:
+  Projects:
+    - LarryWisherMan.ApiUtils.Core.Tests
+  Configuration: Release
+  NoBuild: true
+  Output:
+    CoverageFormat: cobertura
+    CoverageFileName: CodeCov_$(ProjectName)_$(VersionTag).xml
 
 
 # Invoke-Build Header to be used to 'decorate' the terminal output of the tasks.

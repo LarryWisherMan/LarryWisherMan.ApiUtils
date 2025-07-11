@@ -73,4 +73,3 @@
     UsePowerShellGetCompatibilityModule = $true
     UsePowerShellGetCompatibilityModuleVersion = '3.0.23-beta23'
 }
-
