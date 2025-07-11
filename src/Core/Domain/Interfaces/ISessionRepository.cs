@@ -15,7 +15,7 @@ namespace LarryWisherMan.ApiUtils.Domain.Interfaces
         /// </summary>
         /// <param name="name">The name of the session.</param>
         /// <returns>A task that represents the asynchronous operation. The task result contains the session.</returns>
-        Task<ApiSession> GetSessionAsync(string name);
+        Task<ApiSession?> GetSessionAsync(string name);
 
         /// <summary>
         /// Retrieves all persisted sessions.

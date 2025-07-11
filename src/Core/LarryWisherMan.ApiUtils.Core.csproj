@@ -30,6 +30,7 @@
   <ItemGroup>
     <Compile Include="Domain\*\*.cs" />
     <Compile Include="Infrastructure\Parsers\*.cs" />
+    <Compile Include="Infrastructure\Repositories\*.cs" />
 
   </ItemGroup>
 

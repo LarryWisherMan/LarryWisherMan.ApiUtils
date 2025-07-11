@@ -9,9 +9,14 @@ using LarryWisherMan.ApiUtils.Domain.Models;
 
 namespace LarryWisherMan.ApiUtils.Infrastructure.Repositories
 {
-    public class FileSessionRepository : ISessionRepository
+    /// <summary>
+    /// File-based implementation of <see cref="ISessionRepository"/>.
+    /// Persists session data as JSON files in a local user profile directory.
+    /// </summary>
+    public sealed class FileSessionRepository : ISessionRepository
     {
         private readonly string _sessionDirectory;
+
         private static readonly JsonSerializerSettings JsonSettings = new JsonSerializerSettings
         {
             Formatting = Formatting.Indented,
@@ -20,16 +25,23 @@ namespace LarryWisherMan.ApiUtils.Infrastructure.Repositories
             DateFormatHandling = DateFormatHandling.IsoDateFormat
         };
 
-        public FileSessionRepository(string sessionDirectory = null)
+        /// <summary>
+        /// Creates a new <see cref="FileSessionRepository"/> instance with optional storage location.
+        /// </summary>
+        /// <param name="sessionDirectory">
+        /// Optional override for the storage path. Defaults to: %USERPROFILE%\.apiutils\sessions
+        /// </param>
+        public FileSessionRepository(string? sessionDirectory = null)
         {
-            _sessionDirectory = sessionDirectory ??
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                            ".apiutils", "sessions");
+            _sessionDirectory = sessionDirectory ?? Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".apiutils", "sessions");
 
             Directory.CreateDirectory(_sessionDirectory);
         }
 
-        public async Task<ApiSession> GetSessionAsync(string name)
+        /// <inheritdoc />
+        public async Task<ApiSession?> GetSessionAsync(string name)
         {
             var filePath = GetSessionFilePath(name);
             if (!File.Exists(filePath))
@@ -39,6 +51,7 @@ namespace LarryWisherMan.ApiUtils.Infrastructure.Repositories
             return JsonConvert.DeserializeObject<ApiSession>(json, JsonSettings);
         }
 
+        /// <inheritdoc />
         public async Task<IEnumerable<ApiSession>> GetAllSessionsAsync()
         {
             var sessions = new List<ApiSession>();
@@ -50,72 +63,74 @@ namespace LarryWisherMan.ApiUtils.Infrastructure.Repositories
                 {
                     var json = await ReadAllTextAsync(file);
                     var session = JsonConvert.DeserializeObject<ApiSession>(json, JsonSettings);
-                    sessions.Add(session);
+                    if (session is not null)
+                        sessions.Add(session);
                 }
                 catch
                 {
-                    // Skip corrupted session files
+                    // Skip corrupted files
                 }
             }
 
             return sessions;
         }
 
+        /// <inheritdoc />
         public async Task SaveSessionAsync(ApiSession session)
         {
+            if (session == null)
+                throw new ArgumentNullException(nameof(session));
+
             var filePath = GetSessionFilePath(session.Name);
             var json = JsonConvert.SerializeObject(session, JsonSettings);
             await WriteAllTextAsync(filePath, json);
         }
 
-        public async Task DeleteSessionAsync(string name)
+        /// <inheritdoc />
+        public Task DeleteSessionAsync(string name)
         {
             var filePath = GetSessionFilePath(name);
             if (File.Exists(filePath))
-            {
                 File.Delete(filePath);
-            }
-            await Task.CompletedTask;
+
+            return Task.CompletedTask;
         }
 
-        public async Task<bool> SessionExistsAsync(string name)
+        /// <inheritdoc />
+        public Task<bool> SessionExistsAsync(string name)
         {
             var filePath = GetSessionFilePath(name);
-            return await Task.Run(() => File.Exists(filePath));
+            return Task.FromResult(File.Exists(filePath));
         }
 
+        /// <inheritdoc />
         public async Task UpdateLastUsedAsync(string name)
         {
             var session = await GetSessionAsync(name);
-            if (session != null)
+            if (session is not null)
             {
                 session.LastUsed = DateTime.UtcNow;
                 await SaveSessionAsync(session);
             }
         }
 
-        private string GetSessionFilePath(string name)
+        /* ─────────────── HELPERS ─────────────── */
+
+        private string GetSessionFilePath(string name) =>
+            Path.Combine(_sessionDirectory, $"{name}.json");
+
+        private static async Task<string> ReadAllTextAsync(string filePath)
         {
-            var fileName = $"{name}.json";
-            return Path.Combine(_sessionDirectory, fileName);
+            using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+            using var reader = new StreamReader(stream);
+            return await reader.ReadToEndAsync();
         }
 
-        private async Task<string> ReadAllTextAsync(string filePath)
+        private static async Task WriteAllTextAsync(string filePath, string content)
         {
-            using (var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read))
-            using (var reader = new StreamReader(fileStream))
-            {
-                return await reader.ReadToEndAsync();
-            }
-        }
-
-        private async Task WriteAllTextAsync(string filePath, string content)
-        {
-            using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write))
-            using (var writer = new StreamWriter(fileStream))
-            {
-                await writer.WriteAsync(content);
-            }
+            using var stream = new FileStream(filePath, FileMode.Create, FileAccess.Write);
+            using var writer = new StreamWriter(stream);
+            await writer.WriteAsync(content);
         }
     }
 }

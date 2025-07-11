@@ -1,200 +1,191 @@
-using System.IO;
-using System.Threading.Tasks;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Serialization;
-using LarryWisherMan.ApiUtils.Domain.Interfaces;
-using LarryWisherMan.ApiUtils.Domain.Models;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
-
-
+using System.Threading.Tasks;
+using LarryWisherMan.ApiUtils.Domain.Interfaces;
+using LarryWisherMan.ApiUtils.Domain.Models;
 
 namespace LarryWisherMan.ApiUtils.Infrastructure.Repositories
 {
-
     /// <summary>
-    /// Enhanced composite repository with configurable save behavior
+    /// Composite session repository that combines an in-memory cache with persistent storage.
     /// </summary>
     public class CompositeSessionRepository : ISessionRepository, IDisposable
     {
         private readonly InMemorySessionRepository _memoryRepository;
         private readonly ISessionRepository _persistentRepository;
         private readonly bool _defaultSaveToFile;
-        private bool _disposed = false;
+        private bool _disposed;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="CompositeSessionRepository"/> class.
+        /// </summary>
+        /// <param name="persistentRepository">The persistent backing repository (e.g., file-based).</param>
+        /// <param name="defaultSaveToFile">Whether to persist sessions to disk by default.</param>
         public CompositeSessionRepository(ISessionRepository persistentRepository, bool defaultSaveToFile = true)
         {
-            _memoryRepository = new InMemorySessionRepository();
             _persistentRepository = persistentRepository ?? throw new ArgumentNullException(nameof(persistentRepository));
             _defaultSaveToFile = defaultSaveToFile;
+            _memoryRepository = new InMemorySessionRepository();
         }
 
-        public async Task<ApiSession> GetSessionAsync(string name)
+        /// <inheritdoc />
+        public async Task<ApiSession?> GetSessionAsync(string name)
         {
-            // 1. Try memory first (fast)
-            var session = await _memoryRepository.GetSessionAsync(name);
+            if (string.IsNullOrWhiteSpace(name))
+                throw new ArgumentException("Session name cannot be null or empty.", nameof(name));
+
+            // Try in-memory first
+            var session = await _memoryRepository.GetSessionAsync(name).ConfigureAwait(false);
             if (session != null)
             {
-                await _memoryRepository.UpdateLastUsedAsync(name);
+                await _memoryRepository.UpdateLastUsedAsync(name).ConfigureAwait(false);
                 return session;
             }
 
-            // 2. Fall back to persistent storage (always check file as fallback)
-            session = await _persistentRepository.GetSessionAsync(name);
+            // Fallback to persistent storage
+            session = await _persistentRepository.GetSessionAsync(name).ConfigureAwait(false);
             if (session != null)
             {
-                // Cache in memory for next time
-                await _memoryRepository.SaveSessionAsync(session);
-                await _memoryRepository.UpdateLastUsedAsync(name);
+                await _memoryRepository.SaveSessionAsync(session).ConfigureAwait(false);
+                await _memoryRepository.UpdateLastUsedAsync(name).ConfigureAwait(false);
             }
 
             return session;
         }
 
+        /// <inheritdoc />
         public async Task<IEnumerable<ApiSession>> GetAllSessionsAsync()
         {
-            // Get from both sources and merge (memory takes precedence for duplicates)
-            var memorySessions = await _memoryRepository.GetAllSessionsAsync();
-            var persistentSessions = await _persistentRepository.GetAllSessionsAsync();
+            var memorySessions = await _memoryRepository.GetAllSessionsAsync().ConfigureAwait(false);
+            var persistentSessions = await _persistentRepository.GetAllSessionsAsync().ConfigureAwait(false);
 
-            var memorySessionNames = new HashSet<string>(
-                memorySessions.Select(s => s.Name),
-                StringComparer.OrdinalIgnoreCase);
+            var memoryNames = new HashSet<string>(memorySessions.Select(s => s.Name), StringComparer.OrdinalIgnoreCase);
+            var combined = memorySessions.ToList();
 
-            var combinedSessions = memorySessions.ToList();
-
-            // Add persistent sessions that aren't already in memory
-            foreach (var persistentSession in persistentSessions)
+            foreach (var session in persistentSessions)
             {
-                if (!memorySessionNames.Contains(persistentSession.Name))
+                if (!memoryNames.Contains(session.Name))
                 {
-                    combinedSessions.Add(persistentSession);
-                    // Cache in memory
-                    await _memoryRepository.SaveSessionAsync(persistentSession);
+                    combined.Add(session);
+                    await _memoryRepository.SaveSessionAsync(session).ConfigureAwait(false);
                 }
             }
 
-            return combinedSessions;
+            return combined;
         }
 
-        public async Task SaveSessionAsync(ApiSession session)
-        {
-            await SaveSessionAsync(session, _defaultSaveToFile);
-        }
+        /// <inheritdoc />
+        public Task SaveSessionAsync(ApiSession session) =>
+            SaveSessionAsync(session, _defaultSaveToFile);
 
+        /// <summary>
+        /// Saves a session to memory and optionally to persistent storage.
+        /// </summary>
         public async Task SaveSessionAsync(ApiSession session, bool saveToFile)
         {
-            // Always save to memory
-            await _memoryRepository.SaveSessionAsync(session);
+            if (session == null)
+                throw new ArgumentNullException(nameof(session));
 
-            // Conditionally save to file
+            await _memoryRepository.SaveSessionAsync(session).ConfigureAwait(false);
+
             if (saveToFile)
-            {
-                await _persistentRepository.SaveSessionAsync(session);
-            }
+                await _persistentRepository.SaveSessionAsync(session).ConfigureAwait(false);
         }
 
+        /// <inheritdoc />
         public async Task DeleteSessionAsync(string name)
         {
-            // Delete from both repositories
-            await _memoryRepository.DeleteSessionAsync(name);
-            await _persistentRepository.DeleteSessionAsync(name);
+            await _memoryRepository.DeleteSessionAsync(name).ConfigureAwait(false);
+            await _persistentRepository.DeleteSessionAsync(name).ConfigureAwait(false);
         }
 
+        /// <inheritdoc />
         public async Task<bool> SessionExistsAsync(string name)
         {
-            // Check memory first, then persistent (always check file as fallback)
-            var existsInMemory = await _memoryRepository.SessionExistsAsync(name);
-            if (existsInMemory)
-            {
+            if (await _memoryRepository.SessionExistsAsync(name).ConfigureAwait(false))
                 return true;
-            }
 
-            return await _persistentRepository.SessionExistsAsync(name);
+            return await _persistentRepository.SessionExistsAsync(name).ConfigureAwait(false);
         }
 
+        /// <inheritdoc />
         public async Task UpdateLastUsedAsync(string name)
         {
-            await _memoryRepository.UpdateLastUsedAsync(name);
+            await _memoryRepository.UpdateLastUsedAsync(name).ConfigureAwait(false);
 
-            // Update file if it exists there (preserve existing file sessions)
-            var existsInFile = await _persistentRepository.SessionExistsAsync(name);
-            if (existsInFile)
-            {
-                await _persistentRepository.UpdateLastUsedAsync(name);
-            }
+            if (await _persistentRepository.SessionExistsAsync(name).ConfigureAwait(false))
+                await _persistentRepository.UpdateLastUsedAsync(name).ConfigureAwait(false);
         }
 
         /// <summary>
-        /// Manually sync memory to persistent storage
+        /// Persists all sessions currently held in memory to the persistent repository.
         /// </summary>
         public async Task SyncToPersistentAsync()
         {
-            var memorySessions = await _memoryRepository.GetAllSessionsAsync();
-            foreach (var session in memorySessions)
+            var sessions = await _memoryRepository.GetAllSessionsAsync().ConfigureAwait(false);
+            foreach (var session in sessions)
             {
-                await _persistentRepository.SaveSessionAsync(session);
+                await _persistentRepository.SaveSessionAsync(session).ConfigureAwait(false);
             }
         }
 
         /// <summary>
-        /// Load all persistent sessions into memory cache
+        /// Loads all sessions from persistent store into memory cache.
         /// </summary>
         public async Task PreloadCacheAsync()
         {
-            var persistentSessions = await _persistentRepository.GetAllSessionsAsync();
-            await _memoryRepository.LoadSessionsAsync(persistentSessions);
+            var sessions = await _persistentRepository.GetAllSessionsAsync().ConfigureAwait(false);
+            await _memoryRepository.LoadSessionsAsync(sessions).ConfigureAwait(false);
         }
 
         /// <summary>
-        /// Clear memory cache
+        /// Clears all sessions from the memory cache.
         /// </summary>
-        public void ClearCache()
-        {
-            _memoryRepository.Clear();
-        }
+        public void ClearCache() => _memoryRepository.Clear();
 
         /// <summary>
-        /// Get current default save behavior
+        /// Gets whether new sessions are saved to persistent storage by default.
         /// </summary>
         public bool DefaultSaveToFile => _defaultSaveToFile;
 
+        /// <inheritdoc />
         public void Dispose()
         {
             Dispose(true);
             GC.SuppressFinalize(this);
         }
 
+        /// <summary>
+        /// Internal disposal logic.
+        /// </summary>
         protected virtual void Dispose(bool disposing)
         {
             if (!_disposed && disposing)
             {
                 if (_defaultSaveToFile)
                 {
-                    // Try to sync before disposing (fire and forget)
                     try
                     {
-                        SyncToPersistentAsync().Wait(TimeSpan.FromSeconds(5));
+                        SyncToPersistentAsync().ConfigureAwait(false).GetAwaiter().GetResult();
                     }
                     catch
                     {
-                        // Best effort - don't throw during disposal
+                        // Fire-and-forget fallback; suppress exceptions
                     }
                 }
 
                 if (_persistentRepository is IDisposable disposable)
-                {
                     disposable.Dispose();
-                }
 
                 _disposed = true;
             }
         }
 
-        ~CompositeSessionRepository()
-        {
-            Dispose(false);
-        }
+        /// <summary>
+        /// Finalizer
+        /// </summary>
+        ~CompositeSessionRepository() => Dispose(false);
     }
 }

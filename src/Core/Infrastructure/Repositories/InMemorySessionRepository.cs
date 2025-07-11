@@ -15,14 +15,16 @@ namespace LarryWisherMan.ApiUtils.Infrastructure.Repositories
         private readonly Dictionary<string, ApiSession> _sessions = new Dictionary<string, ApiSession>(StringComparer.OrdinalIgnoreCase);
         private readonly object _lock = new object();
 
-        public Task<ApiSession> GetSessionAsync(string name)
+        public Task<ApiSession?> GetSessionAsync(string name)
         {
             lock (_lock)
             {
                 _sessions.TryGetValue(name, out var session);
-                return Task.FromResult(session);
+                return Task.FromResult<ApiSession?>(session);
+
             }
         }
+
 
         public Task<IEnumerable<ApiSession>> GetAllSessionsAsync()
         {
