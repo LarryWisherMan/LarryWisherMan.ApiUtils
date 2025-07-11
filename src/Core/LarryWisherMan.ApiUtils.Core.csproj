@@ -26,4 +26,14 @@
       IncludeAssets="runtime; build" />
   </ItemGroup>
 
+  <!-- Only compile Models -->
+  <ItemGroup>
+    <Compile Include="Domain\Models\*.cs" />
+  </ItemGroup>
+
+  <!-- Prevent default compile of all *.cs -->
+  <PropertyGroup>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
 </Project>

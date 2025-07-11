@@ -1,4 +1,4 @@
-using LarryWisherMan.ApiUtils.Domain.Models;
+using LarryWisherMan.ApiUtils.Domain;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System;

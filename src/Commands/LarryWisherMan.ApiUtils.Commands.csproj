@@ -4,6 +4,7 @@
         <AssemblyName>LarryWisherMan.ApiUtils</AssemblyName>
         <LangVersion>9.0</LangVersion>
         <Nullable>enable</Nullable>
+        <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     </PropertyGroup>
 
     <ItemGroup>
