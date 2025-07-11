@@ -43,7 +43,8 @@ param
 
 # Task: Validate .NET SDK availability
 task Validate_DotNet_SDK {
-    if (-not (Get-Command 'dotnet' -ErrorAction SilentlyContinue)) {
+    if (-not (Get-Command 'dotnet' -ErrorAction SilentlyContinue))
+    {
         throw '.NET SDK not found. Please install .NET SDK 6.0 or later.'
     }
     Write-Build Green ".NET SDK found"
@@ -74,7 +75,8 @@ task Get_Version_Information {
     $BuildInfo.VersionedOutPutFolder = Join-Path -Path (Join-Path -Path $BuildModuleOutput -ChildPath $ProjectName) -ChildPath $version
 
     Write-Build Green "Version: $version"
-    if ($PreRelease) {
+    if ($PreRelease)
+    {
         Write-Build Yellow "Pre-release: $PreRelease"
     }
 }
@@ -121,7 +123,8 @@ task Build_DotNet_Project Restore_NuGet_Packages, {
     )
 
     # Add GitVersion properties if available
-    if ($env:GITVERSION_SEMVER) {
+    if ($env:GITVERSION_SEMVER)
+    {
         $buildArgs += '-p:Version=' + $env:GITVERSION_SEMVER
         $buildArgs += '-p:AssemblyVersion=' + $env:GITVERSION_ASSEMBLYSEMVER
         $buildArgs += '-p:FileVersion=' + $env:GITVERSION_ASSEMBLYSEMVER
@@ -150,14 +153,17 @@ task Locate_Build_Artifacts Build_DotNet_Project, {
     $SourcePSD1 = $null
     $dllItem = $null
 
-    foreach ($path in $possibleBinPaths) {
-        if (Test-Path $path) {
+    foreach ($path in $possibleBinPaths)
+    {
+        if (Test-Path $path)
+        {
             Write-Build DarkGray "Checking path: $path"
             $tempPSD1 = Get-ChildItem $path -Filter "*.psd1" -Recurse -ErrorAction SilentlyContinue
             $tempDLL = Get-ChildItem $path -Filter "$ProjectName.dll" -Recurse -ErrorAction SilentlyContinue
             $OtherDll = Get-ChildItem $path -Filter "Newtonsoft.Json.dll" -Recurse -ErrorAction SilentlyContinue
 
-            if ($tempPSD1 -and $tempDLL) {
+            if ($tempPSD1 -and $tempDLL)
+            {
                 $BinPath = $path
                 $SourcePSD1 = $tempPSD1
                 $dllItem = @($tempDLL, $OtherDll)
@@ -166,13 +172,15 @@ task Locate_Build_Artifacts Build_DotNet_Project, {
         }
     }
 
-    if (-not $SourcePSD1) {
+    if (-not $SourcePSD1)
+    {
         Write-Build Yellow "Available paths:"
         Get-ChildItem (Join-Path $SourcePath "bin") -Recurse | ForEach-Object { Write-Build Yellow "  $($_.FullName)" }
         throw "Could not find module manifest (.psd1) in any of the expected locations"
     }
 
-    if (-not $dllItem) {
+    if (-not $dllItem)
+    {
         Write-Build Yellow "Available DLLs:"
         Get-ChildItem (Join-Path $SourcePath "bin") -Filter "*.dll" -Recurse | ForEach-Object { Write-Build Yellow "  $($_.FullName)" }
         throw "Could not find compiled assembly ($ProjectName.dll) in any of the expected locations"
@@ -197,6 +205,7 @@ task Build_Final_Module Locate_Build_Artifacts, Get_Version_Information, {
     Write-Build Blue "Source Path: $SourcePath"
 }
 
+
 # Main task that orchestrates the entire build
 task Build_DotNet_Assembly Initialize_Build_Variables, Get_Version_Information, Create_Private_Data, Build_Final_Module
 
@@ -212,8 +221,10 @@ task Clean_Build_Output {
         (Join-Path $SourcePath "obj")
     )
 
-    foreach ($path in $pathsToClean) {
-        if (Test-Path $path) {
+    foreach ($path in $pathsToClean)
+    {
+        if (Test-Path $path)
+        {
             Remove-Item -Path $path -Recurse -Force
             Write-Build Yellow "Cleaned: $path"
         }

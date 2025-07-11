@@ -1,22 +1,41 @@
 ####################################################
 #          ModuleBuilder Configuration             #
 ####################################################
-
+VersionedOutputDirectory: true
 BuiltModuleSubdirectory: module
 
-VersionedOutputDirectory: false
 
-#####################################################
-#          .NET Assembly Build Configuration       #
-#####################################################
+####################################################
+#          BinaryModuleBuildSettings Configuration #
+####################################################
 
-# Configuration for building your C# assembly
-DotNetConfig:
-  # Path to your .NET project
-  Project: 'src/LarryWisherMan.ApiUtils/LarryWisherMan.ApiUtils.csproj'
+# -----------------------------------------------------------------------------
+# This section defines build settings for a PowerShell binary module project.
+# It controls:
+#   • Solution/project structure (PrimaryProject, TargetFrameworks, etc.)
+#   • Output behavior (versioned folder structure, output paths)
+#   • DotNet build verbosity and configuration
+#   • CopyOptions to include or exclude build artifacts (PDB, .deps.json)
+# -----------------------------------------------------------------------------
 
-  # Build configuration (Debug for development, Release for CI/CD)
-  Configuration: 'Release'
+BinaryModuleBuildSettings:
+  VersionedOutputDirectory: false
+  ProjectName: "LarryWisherMan.ApiUtils"
+  BuiltModuleSubdirectory: "module"
+  PrimaryProject: "Commands"
+  TargetFrameworks:
+    - netstandard2.0
+  DotNetVerbosity: minimal
+  Configuration: Release
+  ModuleStagingSubdirectory: "bin/ModuleStaging"  # ← new
+  CopyOptions:
+    IncludePdb: false
+    IncludeDepsJson: false
+
+
+
+
+
 
 ####################################################
 #       Sampler Pipeline Configuration             #
@@ -27,7 +46,9 @@ BuildWorkflow:
     - build
 
   build:
-    - Build_DotNet_Assembly
+    - Clean
+    - DotNet_Clean
+    - Build_BinaryModule
 
 # Import ModuleBuilder tasks from a specific PowerShell module using the build
 # task's alias. Wildcard * can be used to specify all tasks that has a similar

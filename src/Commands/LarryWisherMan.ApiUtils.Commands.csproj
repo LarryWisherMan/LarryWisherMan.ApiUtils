@@ -1,112 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
-    <!-- ───────── BASIC METADATA ───────── -->
     <PropertyGroup>
         <TargetFramework>netstandard2.0</TargetFramework>
         <AssemblyName>LarryWisherMan.ApiUtils</AssemblyName>
         <LangVersion>9.0</LangVersion>
         <Nullable>enable</Nullable>
-
-        <!-- Design-time fallback when GitVersion is skipped -->
-        <EffectiveSemVer>0.0.0-dev</EffectiveSemVer>
     </PropertyGroup>
 
-    <!-- ───────── DEPENDENCIES ───────── -->
     <ItemGroup>
         <ProjectReference Include="..\Core\LarryWisherMan.ApiUtils.Core.csproj" />
-
         <PackageReference Include="PowerShellStandard.Library" Version="5.1.1" PrivateAssets="all" />
         <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-        <!-- MSBuild integration → injects GitVersion targets automatically -->
         <PackageReference Include="GitVersion.MsBuild" Version="5.12.0" PrivateAssets="all" />
     </ItemGroup>
-
-    <!-- ───────── SOURCE GLOB ───────── -->
-    <ItemGroup>
-        <Compile Include="Commands\**\*.cs" />
-    </ItemGroup>
-
-    <Target Name="ComputeEffectiveSemVer"
-        BeforeTargets="SetModuleRoot"
-        DependsOnTargets="GetVersion">
-        <PropertyGroup>
-            <EffectiveSemVer Condition="'$(GitVersion_SemVer)' != ''">$(GitVersion_AssemblySemVer)</EffectiveSemVer>
-            <EffectiveSemVer Condition="'$(EffectiveSemVer)' == '' and '$(Version)' != ''">
-                $(Version)</EffectiveSemVer>
-            <EffectiveSemVer Condition="'$(EffectiveSemVer)' == ''">0.0.0-dev</EffectiveSemVer>
-        </PropertyGroup>
-    </Target>
-
-
-    <!-- ───────── SET MODULE ROOT ───────── -->
-    <Target Name="SetModuleRoot" BeforeTargets="StageModule">
-        <PropertyGroup>
-            <ModuleRoot>$(SolutionDir)output\module\LarryWisherMan.ApiUtils\$(EffectiveSemVer)</ModuleRoot>
-            <OutNetStd>$(ModuleRoot)\lib\netstandard2.0</OutNetStd>
-            <OutNet6> $(ModuleRoot)\lib\net6.0</OutNet6>
-        </PropertyGroup>
-    </Target>
-
-    <!--─────────
-    BUILD STAGING ─────────-->
-    <Target Name="StageModule" AfterTargets="Build">
-        <MakeDir Directories="$(OutNetStd);$(OutNet6)" />
-
-        <!-- Commands DLL → both TFMs -->
-        <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(OutNetStd)" />
-        <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(OutNet6)" />
-
-        <!-- Core DLL + runtime deps → netstandard2.0 -->
-        <Copy SourceFiles="@(ReferenceCopyLocalPaths)" DestinationFolder="$(OutNetStd)"
-            SkipUnchangedFiles="true" />
-
-        <!-- Core DLL built for net6.0 (if present) -->
-        <Copy SourceFiles="@(ProjectReferencePaths -> Replace('netstandard2.0','net6.0'))"
-            DestinationFolder="$(OutNet6)"
-            Condition="Exists('%(Identity)')"
-            SkipUnchangedFiles="true" />
-
-        <Copy SourceFiles="LarryWisherMan.ApiUtils.psm1"
-            DestinationFolder="$(ModuleRoot)"
-            SkipUnchangedFiles="true" />
-
-    </Target>
-
-    <Target Name="RenderModuleManifest" AfterTargets="StageModule">
-        <Message Text="Rendering module manifest to $(ModuleRoot)\LarryWisherMan.ApiUtils.psd1"
-            Importance="high" />
-        <Exec
-            Command='powershell -NoProfile -ExecutionPolicy Bypass -File "$(MSBuildProjectDirectory)\Render-Psd1.ps1" -TemplatePath "$(MSBuildProjectDirectory)\LarryWisherMan.ApiUtils.psd1" -OutputPath "$(ModuleRoot)\LarryWisherMan.ApiUtils.psd1" -Version "$(EffectiveSemVer)" -VersionTag "$(EffectiveSemVer)"' />
-        <Error Condition="!Exists('$(ModuleRoot)\LarryWisherMan.ApiUtils.psd1')"
-            Text="ERROR: Failed to render module manifest!" />
-    </Target>
-
-
-    <!--─────────
-    WRITE version.json ─────────-->
-    <Target Name="WriteVersionInfo"
-        AfterTargets="PatchManifestVersion"
-        Condition="'$(EffectiveSemVer)' != ''">
-
-        <ItemGroup>
-            <VerJson Include="{" />
-            <VerJson Include="  &quot;Version&quot;: &quot;$(EffectiveSemVer)&quot;," />
-            <VerJson
-                Include="  &quot;InformationalVersion&quot;: &quot;$(GitVersion_InformationalVersion)&quot;," />
-            <VerJson
-                Include="  &quot;AssemblyVersion&quot;: &quot;$(GitVersion_AssemblySemVer)&quot;," />
-            <VerJson
-                Include="  &quot;FileVersion&quot;: &quot;$(GitVersion_AssemblySemFileVer)&quot;," />
-            <VerJson
-                Include="  &quot;BuildDate&quot;: &quot;$([System.DateTime]::UtcNow.ToString(&quot;yyyy-MM-ddTHH:mm:ssZ&quot;))&quot;," />
-            <VerJson Include="  &quot;GitCommit&quot;: &quot;$(GitVersion_Sha)&quot;," />
-            <VerJson Include="  &quot;Branch&quot;: &quot;$(GitVersion_BranchName)&quot;" />
-            <VerJson Include="}" />
-        </ItemGroup>
-
-        <WriteLinesToFile
-            File="$(ModuleRoot)\version.json"
-            Lines="@(VerJson)"
-            Overwrite="true" />
-    </Target>
-
 </Project>
