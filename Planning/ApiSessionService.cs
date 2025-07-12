@@ -13,14 +13,14 @@ namespace LarryWisherMan.ApiUtils.Application.Services
     {
         private readonly ISessionRepository _sessionRepository;
         private readonly ISessionHttpService _httpService;
-        private readonly IRequestResolver _requestResolver;
+        private readonly IApiRequestResolver _requestResolver;
         private readonly IContentParser _contentParser;
         private readonly IFileService _fileService;
 
         public ApiSessionService(
             ISessionRepository sessionRepository,
             ISessionHttpService httpService,
-            IRequestResolver requestResolver,
+            IApiRequestResolver requestResolver,
             IContentParser contentParser,
             IFileService fileService)
         {
